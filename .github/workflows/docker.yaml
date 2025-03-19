@@ -1,15 +1,17 @@
 name: Docker
 
 ## add something in here to choose when this workflow runs
-#on:
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to use (defaults to "test")'
+        default: "test"
+
+## to build with each push to main (following a PR)
 #  push:
 #    branches:
 #      - main
-#  workflow_dispatch:
-#    inputs:
-#      tag:
-#        description: 'Tag to use (defaults to "test")'
-#        default: "test"
 
 permissions:
   id-token: write
