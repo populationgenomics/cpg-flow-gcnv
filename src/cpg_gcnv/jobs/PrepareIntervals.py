@@ -5,7 +5,7 @@ from cpg_utils.hail_batch import fasta_res_group, get_batch
 
 if TYPE_CHECKING:
     from cpg_utils import Path
-    from hailtop.batch.job import BashJob, Job
+    from hailtop.batch.job import Job
 
 
 def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']) -> 'Job':
@@ -46,4 +46,3 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
     for key, path in output_paths.items():
         get_batch().write_output(job[key], str(path))
     return job
-

@@ -20,6 +20,7 @@ from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, Sequenci
 from cpg_flow.workflow import get_workflow, get_multicohort
 
 from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
+from cpg_gcnv.jobs.CollectReadCounts import collect_read_counts
 
 if TYPE_CHECKING:
     from cpg_utils import Path
@@ -50,9 +51,9 @@ def get_cohort_for_sgid(sgid: str) -> 'Cohort':
     until a better central method exists this needs to run multiple times
     so build a method here with caching
     """
-    for c in get_multicohort().get_cohorts():
-        if sgid in c.get_sequencing_group_ids():
-            return c
+    for cohort_id in get_multicohort().get_cohorts():
+        if sgid in cohort_id.get_sequencing_group_ids():
+            return cohort_id
     raise ValueError(f'Could not find cohort for {sgid}')
 
 
@@ -100,26 +101,28 @@ class CollectReadCounts(SequencingGroupStage):
     Per-sample stage that runs CollectReadCounts to produce .counts.tsv.gz files.
     """
 
-    def expected_outputs(self, seqgroup: SequencingGroup) -> dict[str, Path]:
+    def expected_outputs(self, seqgroup: SequencingGroup) -> dict[str, 'Path | str']:
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
+            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts')
         }
 
-    def queue_jobs(self, seqgroup: SequencingGroup, inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, seqgroup: SequencingGroup, inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(seqgroup)
 
         if seqgroup.cram is None:
             raise ValueError(f'No CRAM file found for {seqgroup}')
 
-        jobs = gcnv.collect_read_counts(
+        job = collect_read_counts(
             intervals_path=inputs.as_path(get_multicohort(), PrepareIntervals, 'preprocessed'),
             cram_path=seqgroup.cram,
             job_attrs=self.get_job_attrs(seqgroup),
-            output_base_path=seqgroup.dataset.prefix() / 'gcnv' / seqgroup.id,
+            output_base_path=outputs['root'],
         )
-        return self.make_outputs(seqgroup, data=outputs, jobs=jobs)
+        return self.make_outputs(seqgroup, data=outputs, jobs=job)
 
+# TODO I got to here
 
 @stage(required_stages=[SetSgIdOrder, PrepareIntervals, CollectReadCounts])
 class DeterminePloidy(CohortStage):
