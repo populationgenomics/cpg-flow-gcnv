@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 # TODO(you): update this to reflect the project's name & description
-name='workflow_name'
+name='cpg_gcnv'
 description='Template workflow'
 readme = "README.md"
 # currently cpg-flow is pinned to this version
@@ -22,7 +22,10 @@ classifiers=[
 ]
 
 dependencies=[
-    'cpg-flow>=v0.1.2',
+    "cpg-flow>=0.1.2",
+    "cpg-utils>=5.2.0",
+    "google-auth>=2.38.0",
+    "ruff>=0.11.0",
 ]
 
 [project.urls]
