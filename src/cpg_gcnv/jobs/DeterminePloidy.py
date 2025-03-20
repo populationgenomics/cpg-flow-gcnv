@@ -23,6 +23,7 @@ def _counts_input_args(counts_paths: list[Path]) -> str:
 
     return args
 
+
 def filter_and_determine_ploidy(
     ploidy_priors_path: str,
     preprocessed_intervals_path: 'Path',
@@ -30,57 +31,53 @@ def filter_and_determine_ploidy(
     counts_paths: list['Path'],
     job_attrs: dict[str, str],
     output_paths: dict[str, 'Path'],
-) -> list['Job']:
-    j = get_batch().new_job(
+) -> 'Job':
+    job = get_batch().new_job(
         'Filter intervals and determine ploidy',
         job_attrs
         | {
             'tool': 'gatk FilterIntervals/DetermineGermlineContigPloidy',
         },
     )
-    j.image(image_path('gatk_gcnv'))
+    job.image(image_path('gatk_gcnv'))
 
     # set highmem resources for this job
     job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=10)
-    job_res.set_to_job(j)
+    job_res.set_to_job(job)
 
     counts_input_args = _counts_input_args(counts_paths)
-    cmd = ''
 
-    if can_reuse(output_paths['filtered']):
-        # Remove 'filtered' entry from output_paths so we don't write_output() it later
-        filtered: ResourceFile = get_batch().read_input(str(output_paths.pop('filtered')))
-    else:
-        preprocessed_intervals = get_batch().read_input(str(preprocessed_intervals_path))
-        annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
+    preprocessed_intervals = get_batch().read_input(str(preprocessed_intervals_path))
+    annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
 
-        cmd += f"""
-        gatk --java-options "{job_res.java_mem_options()}" FilterIntervals \\
-          --interval-merging-rule OVERLAPPING_ONLY \\
-          --intervals {preprocessed_intervals} --annotated-intervals {annotated_intervals} \\
-          {counts_input_args} \\
-          --output {j.filtered}
-        """
+    job.command(f"""
+    gatk --java-options "{job_res.java_mem_options()}" FilterIntervals \\
+      --interval-merging-rule OVERLAPPING_ONLY \\
+      --intervals {preprocessed_intervals} --annotated-intervals {annotated_intervals} \\
+      {counts_input_args} \\
+      --output {job.filtered}
+    """)
 
-        assert isinstance(j.filtered, JobResourceFile)
-        j.filtered.add_extension('.interval_list')
-        filtered = j.filtered
+    job.filtered.add_extension('.interval_list')
 
     # (Other arguments may be cloud URLs, but this *must* be a local file)
     ploidy_priors = get_batch().read_input(ploidy_priors_path)
 
-    cmd += f"""
-    gatk --java-options "{job_res.java_mem_options()}" DetermineGermlineContigPloidy \\
-      --interval-merging-rule OVERLAPPING_ONLY \\
-      --intervals {filtered} --contig-ploidy-priors {ploidy_priors} \\
-      {counts_input_args} \\
-      --output $BATCH_TMPDIR --output-prefix ploidy
+    job.command(f"""
+    gatk \
+        --java-options "{job_res.java_mem_options()}" \
+        DetermineGermlineContigPloidy \
+        --interval-merging-rule OVERLAPPING_ONLY \
+        --intervals {job.filtered} \
+        --contig-ploidy-priors {ploidy_priors} \
+        {counts_input_args} \
+        --output $BATCH_TMPDIR \
+        --output-prefix ploidy
 
-    tar -czf {j.calls} -C $BATCH_TMPDIR ploidy-calls
-    tar -czf {j.model} -C $BATCH_TMPDIR ploidy-model
-    """
+    tar -czf {job.calls} -C $BATCH_TMPDIR ploidy-calls
+    tar -czf {job.model} -C $BATCH_TMPDIR ploidy-model
+    """)
 
-    j.command(command(cmd))
     for key, path in output_paths.items():
-        get_batch().write_output(j[key], str(path))
-    return [j]
+        get_batch().write_output(job[key], str(path))
+    return job

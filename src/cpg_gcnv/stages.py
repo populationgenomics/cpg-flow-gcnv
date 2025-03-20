@@ -122,7 +122,6 @@ class CollectReadCounts(SequencingGroupStage):
         )
         return self.make_outputs(seqgroup, data=outputs, jobs=job)
 
-# TODO I got to here
 
 @stage(required_stages=[SetSgIdOrder, PrepareIntervals, CollectReadCounts])
 class DeterminePloidy(CohortStage):
@@ -131,7 +130,7 @@ class DeterminePloidy(CohortStage):
     FilterIntervals and DetermineGermlineContigPloidy. These outputs represent
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path']:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'filtered': cohort_prefix / 'filtered.interval_list',
@@ -146,20 +145,22 @@ class DeterminePloidy(CohortStage):
 
         # pull the json file with the sgid ordering
         sgid_ordering = json.load(inputs.as_path(cohort, SetSgIdOrder, 'sgid_order').open())
+
         # pull all per-sgid files from previous stage
         random_read_counts = inputs.as_path_by_target(CollectReadCounts, 'counts')
+
         # order those WRT the set ordering
         ordered_read_counts = [random_read_counts[seqgroup] for seqgroup in sgid_ordering]
 
-        jobs = gcnv.filter_and_determine_ploidy(
-            ploidy_priors_path=reference_path('gatk_sv/contig_ploidy_priors'),
+        job = gcnv.filter_and_determine_ploidy(
+            ploidy_priors_path=config_retrieve(['references', 'gatk_sv', 'contig_ploidy_priors']),
             preprocessed_intervals_path=prep_intervals['preprocessed'],
             annotated_intervals_path=prep_intervals['annotated'],
             counts_paths=ordered_read_counts,
             job_attrs=self.get_job_attrs(cohort),
             output_paths=outputs,
         )
-        return self.make_outputs(cohort, data=outputs, jobs=jobs)
+        return self.make_outputs(cohort, data=outputs, jobs=job)
 
 
 @stage(required_stages=DeterminePloidy)
