@@ -11,16 +11,17 @@ from google.api_core.exceptions import PermissionDenied
 from cpg_utils import to_path
 from cpg_utils.config import AR_GUID_NAME, config_retrieve, image_path, reference_path, try_get_ar_guid
 from cpg_utils.hail_batch import get_batch
-from cpg_workflows.jobs import gcnv
-from cpg_workflows.stages.gatk_sv.gatk_sv_common import queue_annotate_sv_jobs
 
 from cpg_utils.cloud import read_secret
 from cpg_flow.utils import get_logger
 from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, SequencingGroupStage, stage
 from cpg_flow.workflow import get_workflow, get_multicohort
 
+from cpg_gcnv.utils import shard_items
 from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
 from cpg_gcnv.jobs.CollectReadCounts import collect_read_counts
+from cpg_gcnv.jobs.DeterminePloidy import filter_and_determine_ploidy
+from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
 
 if TYPE_CHECKING:
     from cpg_utils import Path
@@ -152,7 +153,7 @@ class DeterminePloidy(CohortStage):
         # order those WRT the set ordering
         ordered_read_counts = [random_read_counts[seqgroup] for seqgroup in sgid_ordering]
 
-        job = gcnv.filter_and_determine_ploidy(
+        job = filter_and_determine_ploidy(
             ploidy_priors_path=config_retrieve(['references', 'gatk_sv', 'contig_ploidy_priors']),
             preprocessed_intervals_path=prep_intervals['preprocessed'],
             annotated_intervals_path=prep_intervals['annotated'],
@@ -179,13 +180,11 @@ class UpgradePedWithInferred(CohortStage):
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(cohort)
         ploidy_inputs = get_batch().read_input(str(inputs.as_dict(cohort, DeterminePloidy)['calls']))
-        tmp_ped_path = get_batch().read_input(
-            str(
-                cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp') / 'pedigree.ped'),
-            ),
-        )
-        job = gcnv.upgrade_ped_file(
-            local_ped=tmp_ped_path,
+        ped_path = str(
+                cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp',) / 'pedigree.ped'),
+            )
+        job = upgrade_ped_file(
+            ped_file=ped_path,
             new_output=str(outputs['pedigree']),
             aneuploidies=str(outputs['aneuploidy_samples']),
             ploidy_tar=ploidy_inputs,
@@ -194,7 +193,7 @@ class UpgradePedWithInferred(CohortStage):
 
 
 @stage(required_stages=[SetSgIdOrder, PrepareIntervals, CollectReadCounts, DeterminePloidy])
-class GermlineCNV(CohortStage):
+class CallGermlineCnvsWithGatk(CohortStage):
     """
     The cohort-wide GermlineCNVCaller step, sharded across genome regions.
     This is separate from the DeterminePloidy stage so that the GermlineCNVCalls
@@ -202,7 +201,7 @@ class GermlineCNV(CohortStage):
     """
 
     def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
-        return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in gcnv.shard_basenames()}
+        return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput' | None:
         outputs = self.expected_outputs(cohort)
@@ -216,7 +215,7 @@ class GermlineCNV(CohortStage):
         # order per-sgid files WRT the set ordering
         ordered_read_counts = [random_read_counts[seqgroup] for seqgroup in sgid_ordering]
 
-        jobs = gcnv.shard_gcnv(
+        jobs = shard_gcnv(
             annotated_intervals_path=prep_intervals['annotated'],
             filtered_intervals_path=determine_ploidy['filtered'],
             ploidy_calls_path=determine_ploidy['calls'],
@@ -227,7 +226,7 @@ class GermlineCNV(CohortStage):
         return self.make_outputs(cohort, data=outputs, jobs=jobs)
 
 
-@stage(required_stages=[SetSgIdOrder, DeterminePloidy, GermlineCNV])
+@stage(required_stages=[SetSgIdOrder, DeterminePloidy, CallGermlineCnvsWithGatk])
 class GermlineCNVCalls(SequencingGroupStage):
     """
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
@@ -265,7 +264,7 @@ class GermlineCNVCalls(SequencingGroupStage):
 
         jobs = gcnv.postprocess_calls(
             ploidy_calls_path=determine_ploidy['calls'],
-            shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
+            shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
             sample_index=sgid_ordering.index(seqgroup.id),
             job_attrs=self.get_job_attrs(seqgroup),
             output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / seqgroup.id),
@@ -419,7 +418,7 @@ class GCNVJointSegmentation(CohortStage):
 
 
 @stage(
-    required_stages=[SetSgIdOrder, GCNVJointSegmentation, GermlineCNV, GermlineCNVCalls, DeterminePloidy],
+    required_stages=[SetSgIdOrder, GCNVJointSegmentation, CallGermlineCnvsWithGatk, GermlineCNVCalls, DeterminePloidy],
 )
 class RecalculateClusteredQuality(SequencingGroupStage):
     """
@@ -466,7 +465,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
 
         jobs = gcnv.postprocess_calls(
             ploidy_calls_path=determine_ploidy['calls'],
-            shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
+            shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
             sample_index=sgid_ordering.index(sequencing_group.id),
             job_attrs=self.get_job_attrs(sequencing_group),
             output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / sequencing_group.id),

@@ -4,24 +4,12 @@ from cpg_utils.config import image_path
 from cpg_utils.hail_batch import fasta_res_group, get_batch
 from cpg_flow.resources import HIGHMEM
 
+from cpg_gcnv.utils import shard_items
+
 if TYPE_CHECKING:
     from cpg_utils import Path
     from cpg_flow.filetypes import CramPath
     from hailtop.batch.job import Job
-
-
-def _counts_input_args(counts_paths: list[Path]) -> str:
-    args = ''
-    for f in counts_paths:
-        counts = get_batch().read_input_group(
-            **{
-                'counts.tsv.gz': str(f),
-                'counts.tsv.gz.tbi': str(f) + '.tbi',
-            },
-        )["counts.tsv.gz"]
-        args += f' --input {counts}'
-
-    return args
 
 
 def filter_and_determine_ploidy(
@@ -45,7 +33,7 @@ def filter_and_determine_ploidy(
     job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=10)
     job_res.set_to_job(job)
 
-    counts_input_args = _counts_input_args(counts_paths)
+    counts_input_args = counts_input_args(counts_paths)
 
     preprocessed_intervals = get_batch().read_input(str(preprocessed_intervals_path))
     annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
