@@ -1,13 +1,32 @@
 from typing import TYPE_CHECKING
 
 from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import fasta_res_group, get_batch, command, authenticate_cloud_credentials_in_job
+from cpg_utils.hail_batch import fasta_res_group, get_batch, authenticate_cloud_credentials_in_job
 from cpg_flow.resources import HIGHMEM
 
 
 if TYPE_CHECKING:
     from cpg_utils import Path
     from hailtop.batch.job import Job
+
+
+def chunks(iterable, chunk_size):
+    """
+    Yield successive n-sized chunks from an iterable
+
+    Args:
+        iterable (): any iterable - tuple, str, list, set
+        chunk_size (): size of intervals to return
+
+    Returns:
+        intervals of requested size across the collection
+    """
+
+    if isinstance(iterable, set):
+        iterable = list(iterable)
+
+    for i in range(0, len(iterable), chunk_size):
+        yield iterable[i : (i + chunk_size)]
 
 
 def postprocess_calls(
