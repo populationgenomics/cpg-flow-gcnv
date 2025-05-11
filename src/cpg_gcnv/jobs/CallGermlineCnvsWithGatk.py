@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from cpg_utils.config import config_retrieve, image_path
+from cpg_utils.config import image_path
 from cpg_utils.hail_batch import get_batch
 from cpg_flow.utils import can_reuse
 from cpg_flow.resources import HIGHMEM
@@ -19,9 +19,10 @@ def shard_gcnv(
     job_attrs: dict[str, str],
     output_paths: dict[str, 'Path'],
 ) -> list['Job']:
-    annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
-    filtered_intervals = get_batch().read_input(str(filtered_intervals_path))
-    ploidy_calls_tarball = get_batch().read_input(str(ploidy_calls_path))
+
+    annotated_intervals = get_batch().read_input(annotated_intervals_path)
+    filtered_intervals = get_batch().read_input(filtered_intervals_path)
+    ploidy_calls_tarball = get_batch().read_input(ploidy_calls_path)
     counts_input = counts_input_args(counts_paths)
 
     jobs: list['Job'] = []
@@ -31,11 +32,10 @@ def shard_gcnv(
             continue
 
         job = get_batch().new_job(
-            'Call germline CNVs',
+            f'Call germline CNVs shard {i} of {n}',
             job_attrs
             | {
                 'tool': 'gatk GermlineCNVCaller',
-                'part': f'shard {i} of {n}',
             },
         )
         job.image(image_path('gatk_gcnv'))

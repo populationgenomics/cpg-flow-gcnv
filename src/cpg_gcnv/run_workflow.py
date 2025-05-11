@@ -12,29 +12,22 @@ This is re-implemented as a simpler form, only knowing how to build a single wor
 from argparse import ArgumentParser
 
 from cpg_flow.workflow import run_workflow
+from cpg_utils.config import config_retrieve
 
-# TODO(you) import your own Stages
-from workflow_name.stages import DoSomethingGenericWithBash, PrintPreviousJobOutputInAPythonJob
+from cpg_gcnv.stages import CallGermlineCnvsWithGatk
 
 
 def cli_main():
     """
     CLI entrypoint - starts up the workflow
     """
+    assert config_retrieve(['workflow', 'sequencing_type']) == 'exome', 'For exomes, use GATK-SV instead'
+
     parser = ArgumentParser()
     parser.add_argument('--dry_run', action='store_true', help='Dry run')
     args = parser.parse_args()
 
-    # Note - in production-pipelines the main.py script sets up layers of default configuration,
-    # overlaid with workflow-specific configuration, and then runs the workflow.
-    # If you want to re-use that model, this should be carried out before entering the workflow
-
-    # Otherwise all configuration should be done by providing all relevant configs to analysis-runner
-    # https://github.com/populationgenomics/team-docs/blob/main/cpg_utils_config.md#config-in-analysis-runner-jobs
-
-    stages = [DoSomethingGenericWithBash, PrintPreviousJobOutputInAPythonJob]
-
-    run_workflow(stages=stages, dry_run=args.dry_run)
+    run_workflow(stages=[CallGermlineCnvsWithGatk], dry_run=args.dry_run)
 
 
 if __name__ == '__main__':

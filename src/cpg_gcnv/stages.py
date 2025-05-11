@@ -7,18 +7,19 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from google.api_core.exceptions import PermissionDenied
+from loguru import logger
 
 from cpg_utils import to_path
-from cpg_utils.config import AR_GUID_NAME, config_retrieve, image_path, reference_path, try_get_ar_guid
+from cpg_utils.config import AR_GUID_NAME, config_retrieve, image_path, try_get_ar_guid
 from cpg_utils.hail_batch import get_batch
 
 from cpg_utils.cloud import read_secret
-from cpg_flow.utils import get_logger
 from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, SequencingGroupStage, stage
 from cpg_flow.workflow import get_workflow, get_multicohort
 
 from cpg_gcnv.utils import shard_items
 from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
+from cpg_gcnv.jobs.CallGermlineCnvsWithGatk import shard_gcnv
 from cpg_gcnv.jobs.CollectReadCounts import collect_read_counts
 from cpg_gcnv.jobs.DeterminePloidy import filter_and_determine_ploidy
 from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
@@ -90,7 +91,6 @@ class PrepareIntervals(MultiCohortStage):
         }
 
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
-        assert config_retrieve(['workflow', 'sequencing_type']) == 'exome', 'For exomes, use GATK-SV instead'
         outputs = self.expected_outputs(multicohort)
         jobs = prepare_intervals(self.get_job_attrs(multicohort), outputs)
         return self.make_outputs(multicohort, data=outputs, jobs=jobs)
@@ -139,7 +139,7 @@ class DeterminePloidy(CohortStage):
             'model': cohort_prefix / 'ploidy-model.tar.gz',
         }
 
-    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput | None':
         outputs = self.expected_outputs(cohort)
 
         prep_intervals = inputs.as_dict(get_multicohort(), PrepareIntervals)
@@ -179,14 +179,12 @@ class UpgradePedWithInferred(CohortStage):
 
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(cohort)
-        ploidy_inputs = get_batch().read_input(str(inputs.as_dict(cohort, DeterminePloidy)['calls']))
-        ped_path = str(
-                cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp',) / 'pedigree.ped'),
-            )
+        ploidy_inputs = get_batch().read_input(inputs.as_dict(cohort, DeterminePloidy)['calls'])
+        ped_path = cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp',) / 'pedigree.ped')
         job = upgrade_ped_file(
             ped_file=ped_path,
-            new_output=str(outputs['pedigree']),
-            aneuploidies=str(outputs['aneuploidy_samples']),
+            new_output=outputs['pedigree'],
+            aneuploidies=outputs['aneuploidy_samples'],
             ploidy_tar=ploidy_inputs,
         )
         return self.make_outputs(cohort, data=outputs, jobs=job)  # type: ignore
@@ -203,7 +201,7 @@ class CallGermlineCnvsWithGatk(CohortStage):
     def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
         return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
-    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput | None':
         outputs = self.expected_outputs(cohort)
         determine_ploidy = inputs.as_dict(cohort, DeterminePloidy)
         prep_intervals = inputs.as_dict(get_multicohort(), PrepareIntervals)
@@ -227,7 +225,7 @@ class CallGermlineCnvsWithGatk(CohortStage):
 
 
 @stage(required_stages=[SetSgIdOrder, DeterminePloidy, CallGermlineCnvsWithGatk])
-class GermlineCNVCalls(SequencingGroupStage):
+class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
     """
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
     """
@@ -391,10 +389,10 @@ class GCNVJointSegmentation(CohortStage):
         all_vcfs: list[str] = []
         for sgid in sgid_ordering:
             if sgid in trimmed_vcfs:
-                get_logger().info(f'Using XY-trimmed VCF for {sgid}')
+                logger.info(f'Using XY-trimmed VCF for {sgid}')
                 all_vcfs.append(str(trimmed_vcfs[sgid]))
             elif sgid in cnv_vcfs:
-                get_logger().warning(f'Using standard VCF for {sgid}')
+                logger.warning(f'Using standard VCF for {sgid}')
                 all_vcfs.append(str(cnv_vcfs[sgid]['segments']))
             else:
                 raise ValueError(f'No VCF found for {sgid}')
@@ -743,10 +741,10 @@ class MtToEsCNV(DatasetStage):
         try:
             _es_password_string = es_password()
         except PermissionDenied:
-            get_logger().warning(f'No permission to access ES password, skipping for {dataset}')
+            logger.warning(f'No permission to access ES password, skipping for {dataset}')
             return self.make_outputs(dataset)
         except KeyError:
-            get_logger().warning(f'ES section not in config, skipping for {dataset}')
+            logger.warning(f'ES section not in config, skipping for {dataset}')
             return self.make_outputs(dataset)
 
         # get the absolute path to the MT

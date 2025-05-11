@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 from cpg_utils.config import config_retrieve
 from cpg_utils.hail_batch import get_batch
 
+from cpg_gcnv.scripts import upgrade_ped_with_inferred_sex
+
 if TYPE_CHECKING:
     from hailtop.batch.job import Job
 
@@ -24,7 +26,7 @@ def upgrade_ped_file(ped_file: str, new_output: str, aneuploidies: str, ploidy_t
 
     # path to the python script
     j.command(f'tar -xf {ploidy_tar} -C .')  # creates the folder ploidy-calls
-    j.command(f'upgrade_ped_with_inferred_sex {local_ped} {j.output} {j.aneuploidies} ploidy-calls')
+    j.command(f'{upgrade_ped_with_inferred_sex.__file__} {local_ped} {j.output} {j.aneuploidies} ploidy-calls')
     get_batch().write_output(j.output, new_output)
     get_batch().write_output(j.aneuploidies, aneuploidies)
     return j
