@@ -15,17 +15,17 @@ def shard_gcnv(
     annotated_intervals_path: 'Path',
     filtered_intervals_path: 'Path',
     ploidy_calls_path: 'Path',
-    counts_paths: list['Path'],
+    counts_paths: 'list[Path]',
     job_attrs: dict[str, str],
-    output_paths: dict[str, 'Path'],
-) -> list['Job']:
+    output_paths: 'dict[str, Path]',
+) -> 'list[Job]':
 
     annotated_intervals = get_batch().read_input(annotated_intervals_path)
     filtered_intervals = get_batch().read_input(filtered_intervals_path)
     ploidy_calls_tarball = get_batch().read_input(ploidy_calls_path)
     counts_input = counts_input_args(counts_paths)
 
-    jobs: list['Job'] = []
+    jobs: list[Job] = []
 
     for name, i, n, select_cmd in shard_items(name_only=False):
         if can_reuse(output_paths[name]):
@@ -50,11 +50,11 @@ def shard_gcnv(
         {select_cmd} < {filtered_intervals} > {job.shard_intervals}
 
         gatk \
-          --java-options "{job_res.java_mem_options()}" GermlineCNVCaller \\
-          --run-mode COHORT --interval-merging-rule OVERLAPPING_ONLY \\
-          --intervals {job.shard_intervals} --annotated-intervals {annotated_intervals} \\
-          {counts_input} \\
-          --contig-ploidy-calls $BATCH_TMPDIR/ploidy-calls \\
+          --java-options "{job_res.java_mem_options()}" GermlineCNVCaller \
+          --run-mode COHORT --interval-merging-rule OVERLAPPING_ONLY \
+          --intervals {job.shard_intervals} --annotated-intervals {annotated_intervals} \
+          {counts_input} \
+          --contig-ploidy-calls $BATCH_TMPDIR/ploidy-calls \
           --output $BATCH_TMPDIR --output-prefix {name}
 
         tar -czf {job.shard_tarball} -C $BATCH_TMPDIR {name}-calls {name}-model {name}-tracking

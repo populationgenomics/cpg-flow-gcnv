@@ -1,10 +1,133 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils.config import config_retrieve
-from cpg_utils.hail_batch import get_batch
+from cpg_utils.config import config_retrieve, image_path
+from cpg_utils.hail_batch import fasta_res_group, get_batch, command, authenticate_cloud_credentials_in_job
+from cpg_flow.resources import HIGHMEM
+
 
 if TYPE_CHECKING:
     from cpg_utils import Path
+    from hailtop.batch.job import Job
+
+
+def postprocess_calls(
+        ploidy_calls_path: 'Path',
+        shard_paths: 'dict[str, Path]',
+        sample_index: int,
+        job_attrs: dict[str, str],
+        output_prefix: str,
+        clustered_vcf: str | None = None,
+        intervals_vcf: str | None = None,
+        qc_file: str | None = None,
+) -> 'Job':
+    if any([clustered_vcf, intervals_vcf, qc_file]):
+        assert all([clustered_vcf, intervals_vcf, qc_file]), [clustered_vcf, intervals_vcf, qc_file]
+
+    if clustered_vcf:
+        job_name = 'Postprocess gCNV calls with clustered VCF'
+    else:
+        job_name = 'Postprocess gCNV calls'
+
+    job = get_batch().new_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
+    job.image(image_path('gatk_gcnv'))
+
+    # set highmem resources for this job
+    job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=20)
+    job_res.set_to_job(job)
+    authenticate_cloud_credentials_in_job(job)
+
+    reference = fasta_res_group(get_batch())
+
+    ploidy_calls_tarball = get_batch().read_input(ploidy_calls_path)
+
+    job.command(f'tar -xzf {ploidy_calls_tarball} -C $BATCH_TMPDIR/inputs')
+
+    model_shard_args = ''
+    calls_shard_args = ''
+
+    for name, path in [(shard, shard_paths[shard]) for shard in shard_items(name_only=True)]:
+        shard_tar = get_batch().read_input(path)
+        job.command(f'tar -xzf {shard_tar} -C $BATCH_TMPDIR/inputs')
+        model_shard_args += f' --model-shard-path $BATCH_TMPDIR/inputs/{name}-model'
+        calls_shard_args += f' --calls-shard-path $BATCH_TMPDIR/inputs/{name}-calls'
+
+    allosomal_contigs_args = ' '.join(
+        [
+            f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])
+        ]
+    )
+
+    # declare all output files in advance
+    job.declare_resource_group(
+        output={
+            'intervals.vcf.gz': '{root}/intervals.vcf.gz',
+            'intervals.vcf.gz.tbi': '{root}/intervals.vcf.gz.tbi',
+            'segments.vcf.gz': '{root}/segments.vcf.gz',
+            'segments.vcf.gz.tbi': '{root}/segments.vcf.gz.tbi',
+            'ratios.tsv': '{root}/ratios.tsv',
+        },
+    )
+
+    extra_args = ''
+    if clustered_vcf:
+        assert isinstance(intervals_vcf, str)
+        local_clusters = get_batch().read_input_group(vcf=clustered_vcf, index=f'{clustered_vcf}.tbi').vcf
+        local_intervals = get_batch().read_input_group(vcf=intervals_vcf, index=f'{intervals_vcf}.tbi').vcf
+        extra_args += f"""--clustered-breakpoints {local_clusters} \
+         --input-intervals-vcf {local_intervals} \
+          -R {reference.base}
+        """
+
+    job.command(
+        f"""
+    OUTS=$(dirname {job.output['intervals.vcf.gz']})
+    BATCH_OUTS=$(dirname $OUTS)
+    mkdir $OUTS
+    gatk --java-options "{job_res.java_mem_options()}" PostprocessGermlineCNVCalls \
+      --sequence-dictionary {reference.dict} {allosomal_contigs_args} \
+      --contig-ploidy-calls $BATCH_TMPDIR/inputs/ploidy-calls \
+      {model_shard_args} {calls_shard_args} \
+      --sample-index {sample_index} \
+      --output-genotyped-intervals {job.output['intervals.vcf.gz']} \
+      --output-genotyped-segments {job.output['segments.vcf.gz']} \
+      --output-denoised-copy-ratios {job.output['ratios.tsv']} {extra_args}
+    """,
+    )
+
+    # index the output VCFs
+    job.command(f'tabix -f {job.output["intervals.vcf.gz"]}')  # type: ignore
+    job.command(f'tabix -f {job.output["segments.vcf.gz"]}')  # type: ignore
+
+    if clustered_vcf:
+        assert isinstance(qc_file, str)
+        max_events = config_retrieve(['workflow', 'gncv_max_events'])
+        max_pass_events = config_retrieve(['workflow', 'gncv_max_pass_events'])
+
+        # do some additional QC to determine pass/fail
+        job.command(
+            f"""
+        #use awk instead of grep - grep returning no lines causes a pipefailure
+        NUM_SEGMENTS=$(zcat {job.output['segments.vcf.gz']} | \
+          awk '!/^#/ && !/0\\/0/ && !/\t0:1:/ {{count++}} END {{print count}}')
+        NUM_PASS_SEGMENTS=$(zcat {job.output['segments.vcf.gz']} | \
+          awk '!/^#/ && !/0\\/0/ && !/\t0:1:/ && /PASS/ {{count++}} END {{print count}}')
+        if [ $NUM_SEGMENTS -lt {max_events} ]; then
+            if [ $NUM_PASS_SEGMENTS -lt {max_pass_events} ]; then
+              echo "PASS" >> {job.qc_file}
+            else
+              echo "EXCESSIVE_NUMBER_OF_PASS_EVENTS" >> {job.qc_file}
+            fi
+        else
+            echo "EXCESSIVE_NUMBER_OF_EVENTS" >> {job.qc_file}
+        fi
+        cat {job.qc_file}
+        """,
+        )
+        get_batch().write_output(job.qc_file, qc_file)
+
+    get_batch().write_output(job.output, output_prefix)
+
+    return job
 
 
 def counts_input_args(counts_paths: list['Path']) -> str:
@@ -33,4 +156,3 @@ def shard_items(name_only: bool):
                 yield name, i, count, f"awk '/^@/ || $1 ~ /^({chroms})$/'"
     else:
         raise NotImplementedError('gCNV sharding technique not specified')
-

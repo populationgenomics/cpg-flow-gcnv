@@ -23,6 +23,8 @@ from cpg_gcnv.jobs.CallGermlineCnvsWithGatk import shard_gcnv
 from cpg_gcnv.jobs.CollectReadCounts import collect_read_counts
 from cpg_gcnv.jobs.DeterminePloidy import filter_and_determine_ploidy
 from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
+from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_calls
+from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
 
 if TYPE_CHECKING:
     from cpg_utils import Path
@@ -180,7 +182,7 @@ class UpgradePedWithInferred(CohortStage):
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(cohort)
         ploidy_inputs = get_batch().read_input(inputs.as_dict(cohort, DeterminePloidy)['calls'])
-        ped_path = cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp',) / 'pedigree.ped')
+        ped_path = cohort.write_ped_file(self.get_stage_cohort_prefix(cohort, category='tmp') / 'pedigree.ped')
         job = upgrade_ped_file(
             ped_file=ped_path,
             new_output=outputs['pedigree'],
@@ -194,7 +196,7 @@ class UpgradePedWithInferred(CohortStage):
 class CallGermlineCnvsWithGatk(CohortStage):
     """
     The cohort-wide GermlineCNVCaller step, sharded across genome regions.
-    This is separate from the DeterminePloidy stage so that the GermlineCNVCalls
+    This is separate from the DeterminePloidy stage so that the ProcessCohortCnvCallsToSgVcf
     stage can pick out this stage's sharded inputs easily.
     """
 
@@ -230,13 +232,13 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
     """
 
-    def expected_outputs(self, seqgroup: SequencingGroup) -> dict[str, Path]:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, Path]:
         """
         output paths here are per-SGID, but stored in the directory structure indicating the whole MCohort
         """
 
         # identify the cohort that contains this SGID
-        this_cohort: 'Cohort' = get_cohort_for_sgid(seqgroup.id)
+        this_cohort: Cohort = get_cohort_for_sgid(seqgroup.id)
 
         # this job runs per sample, on results with a cohort context
         # so we need to write the outputs to a cohort-specific location
@@ -260,7 +262,7 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
         # pull the json file with the sgid ordering
         sgid_ordering = json.load(inputs.as_path(this_cohort, SetSgIdOrder, 'sgid_order').open())
 
-        jobs = gcnv.postprocess_calls(
+        jobs = postprocess_unclustered_calls(
             ploidy_calls_path=determine_ploidy['calls'],
             shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
             sample_index=sgid_ordering.index(seqgroup.id),
@@ -270,7 +272,7 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
         return self.make_outputs(seqgroup, data=outputs, jobs=jobs)
 
 
-@stage(required_stages=[GermlineCNVCalls, UpgradePedWithInferred])
+@stage(required_stages=[ProcessCohortCnvCallsToSgVcf, UpgradePedWithInferred])
 class TrimOffSexChromosomes(CohortStage):
     """
     Trim off sex chromosomes for gCNV VCFs where the SGID is detected to be Aneuploid
@@ -282,7 +284,7 @@ class TrimOffSexChromosomes(CohortStage):
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
         # returning an empty dictionary might cause the pipeline setup to break?
-        return_dict: dict[str, Path | str] = {
+        return_dict: 'dict[str, Path | str]' = {
             'placeholder': str(cohort_prefix / 'placeholder.txt'),
         }
 
@@ -317,6 +319,10 @@ class TrimOffSexChromosomes(CohortStage):
         for sgid in set(aneuploid_samples):
             return_dict[sgid] = cohort_prefix / f'{sgid}.segments.vcf.bgz'
 
+        if len(return_dict) >= 1:
+            # if don't need the placeholder, remove it
+            return_dict.pop('placeholder')
+
         return return_dict
 
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
@@ -326,34 +332,27 @@ class TrimOffSexChromosomes(CohortStage):
         Plan to generate every file, so that the stage can be forced to re-run if needed
         """
         expected = self.expected_outputs(cohort)
-        germline_calls = inputs.as_dict_by_target(GermlineCNVCalls)
-        jobs = []
-        sg_ids_in_cohort = cohort.get_sequencing_group_ids()
-        for sgid, new_vcf in expected.items():
-            if sgid == 'placeholder' or sgid not in sg_ids_in_cohort:
-                continue
-            sg_vcf = germline_calls[sgid]['segments']
-            jobs.append(
-                gcnv.trim_sex_chromosomes(
-                    sgid,
-                    str(sg_vcf),
-                    str(new_vcf),
-                    self.get_job_attrs(cohort),
-                ),
-            )
-        return self.make_outputs(cohort, data=expected, jobs=jobs)  # type: ignore
+        germline_calls = inputs.as_dict_by_target(ProcessCohortCnvCallsToSgVcf)
+
+        cohort_segment_vcfs = {sgid: germline_calls[sgid]['segments'] for sgid in cohort.get_sequencing_group_ids()}
+        jobs = trim_sex_chromosomes(
+            sgid_to_output=expected,
+            segment_vcfs=cohort_segment_vcfs,
+            job_attrs=self.get_job_attrs(cohort)
+        )
+        return self.make_outputs(cohort, data=expected, jobs=jobs)
 
 
 @stage(
     required_stages=[
         TrimOffSexChromosomes,
         SetSgIdOrder,
-        GermlineCNVCalls,
+        ProcessCohortCnvCallsToSgVcf,
         PrepareIntervals,
         UpgradePedWithInferred,
     ],
 )
-class GCNVJointSegmentation(CohortStage):
+class JointSegmentCnvVcfs(CohortStage):
     """
     various config elements scavenged from https://github.com/broadinstitute/gatk/blob/cfd4d87ec29ac45a68f13a37f30101f326546b7d/scripts/cnv_cromwell_tests/germline/cnv_germline_case_scattered_workflow.json#L26
     continuing adaptation of https://github.com/broadinstitute/gatk/blob/master/scripts/cnv_wdl/germline/joint_call_exome_cnvs.wdl
@@ -377,7 +376,7 @@ class GCNVJointSegmentation(CohortStage):
         """
 
         # get the individual Segment VCFs
-        cnv_vcfs = inputs.as_dict_by_target(GermlineCNVCalls)
+        cnv_vcfs = inputs.as_dict_by_target(ProcessCohortCnvCallsToSgVcf)
 
         # and the dict of trimmed VCFs (can be empty)
         trimmed_vcfs = inputs.as_dict(cohort, TrimOffSexChromosomes)
@@ -416,7 +415,7 @@ class GCNVJointSegmentation(CohortStage):
 
 
 @stage(
-    required_stages=[SetSgIdOrder, GCNVJointSegmentation, CallGermlineCnvsWithGatk, GermlineCNVCalls, DeterminePloidy],
+    required_stages=[SetSgIdOrder, JointSegmentCnvVcfs, CallGermlineCnvsWithGatk, ProcessCohortCnvCallsToSgVcf, DeterminePloidy],
 )
 class RecalculateClusteredQuality(SequencingGroupStage):
     """
@@ -453,10 +452,10 @@ class RecalculateClusteredQuality(SequencingGroupStage):
         this_cohort = get_cohort_for_sgid(sequencing_group.id)
 
         # get the clustered VCF from the previous stage
-        joint_seg = inputs.as_dict(this_cohort, GCNVJointSegmentation)
+        joint_seg = inputs.as_dict(this_cohort, JointSegmentCnvVcfs)
 
         determine_ploidy = inputs.as_dict(this_cohort, DeterminePloidy)
-        gcnv_call_inputs = inputs.as_dict(sequencing_group, GermlineCNVCalls)
+        gcnv_call_inputs = inputs.as_dict(sequencing_group, ProcessCohortCnvCallsToSgVcf)
 
         # pull the json file with the sgid ordering
         sgid_ordering = json.load(inputs.as_path(this_cohort, SetSgIdOrder, 'sgid_order').open())
@@ -656,8 +655,8 @@ class AnnotateCohortgCNV(MultiCohortStage):
         gencode_gtf_local = get_batch().read_input(str(gencode_gz))
         j.command(
             'seqr_loader_cnv '
-            f'--mt_out {str(outputs["mt"])} '
-            f'--checkpoint {str(self.tmp_prefix / "checkpoints")} '
+            f'--mt_out {outputs["mt"]!s} '
+            f'--checkpoint {self.tmp_prefix / "checkpoints"!s} '
             f'cohort '  # use the annotate_COHORT functionality
             f'--vcf {vcf_path} '
             f'--gencode {gencode_gtf_local} ',
@@ -712,7 +711,7 @@ class MtToEsCNV(DatasetStage):
     Create a Seqr index
     """
 
-    def expected_outputs(self, dataset: 'Dataset') -> dict[str, str | Path]:
+    def expected_outputs(self, dataset: 'Dataset') -> 'dict[str, str | Path]':
         """
         Expected to generate a Seqr index, which is not a file
         """
@@ -722,7 +721,7 @@ class MtToEsCNV(DatasetStage):
             'done_flag': dataset.prefix() / 'es' / f'{index_name}.done',
         }
 
-    def queue_jobs(self, dataset: 'Dataset', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, dataset: 'Dataset', inputs: 'StageInput') -> 'StageOutput':
         """
         Freshly liberated from the clutches of DataProc
         Uses the script cpg_workflows/dataproc_scripts/mt_to_es_free_of_dataproc.py
