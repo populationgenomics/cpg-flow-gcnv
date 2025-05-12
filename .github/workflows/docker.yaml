@@ -1,15 +1,15 @@
 name: Docker
 
-## add something in here to choose when this workflow runs
-#on:
-#  push:
-#    branches:
-#      - main
-#  workflow_dispatch:
-#    inputs:
-#      tag:
-#        description: 'Tag to use (defaults to "test")'
-#        default: "test"
+# add something in here to choose when this workflow runs
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to use (defaults to "test")'
+        default: "test"
 
 permissions:
   id-token: write
@@ -29,9 +29,8 @@ jobs:
       DOCKER_BUILDKIT: 1
       BUILDKIT_PROGRESS: plain
       CLOUDSDK_CORE_DISABLE_PROMPTS: 1
-      # TODO(you) choose the name for your image
-      IMAGE_NAME: workflow_name
-      DOCKER_TMP: australia-southeast1-docker.pkg.dev/cpg-common/images-tmp
+      IMAGE_NAME: cpg_flow_gcnv
+      DOCKER_TMP: australia-southeast1-docker.pkg.dev/cpg-common/images-dev
       DOCKER_MAIN: australia-southeast1-docker.pkg.dev/cpg-common/images
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +57,6 @@ jobs:
         run: |
           docker build . -f Dockerfile --tag ${{env.IMAGE_NAME}}:${{ github.sha }}
 
-      # TODO(you) choose how/when to push the resulting image
       - name: Push from merge to main
         if: ${{ github.ref_name == 'main' }}
         run: |
