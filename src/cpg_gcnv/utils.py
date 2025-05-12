@@ -1,5 +1,7 @@
+import re
 from typing import TYPE_CHECKING
 
+from cpg_utils import to_path
 from cpg_utils.config import config_retrieve, image_path
 from cpg_utils.hail_batch import fasta_res_group, get_batch, authenticate_cloud_credentials_in_job
 from cpg_flow.resources import HIGHMEM
@@ -7,7 +9,11 @@ from cpg_flow.resources import HIGHMEM
 
 if TYPE_CHECKING:
     from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
+    from cpg_flow.targets import MultiCohort
+
+
+PED_FAMILY_ID_REGEX = re.compile(r'(^[A-Za-z0-9_]+$)')
 
 
 def chunks(iterable, chunk_size):
@@ -29,25 +35,74 @@ def chunks(iterable, chunk_size):
         yield iterable[i : (i + chunk_size)]
 
 
+def clean_ped_family_ids(ped_line: str) -> str:
+    """
+    Takes each line in the pedigree and cleans it up
+    If the family ID already conforms to expectations, no action
+    If the family ID fails, replace all non-alphanumeric/non-underscore
+    characters with underscores
+
+    >>> clean_ped_family_ids('family1\tchild1\t0\t0\t1\t0\\n')
+    'family1\tchild1\t0\t0\t1\t0\\n'
+    >>> clean_ped_family_ids('family-1-dirty\tchild1\t0\t0\t1\t0\\n')
+    'family_1_dirty\tchild1\t0\t0\t1\t0\\n'
+
+    Args:
+        ped_line (str): line from the pedigree file, unsplit
+
+    Returns:
+        the same line with a transformed family id
+    """
+
+    split_line = ped_line.rstrip().split('\t')
+
+    if re.match(PED_FAMILY_ID_REGEX, split_line[0]):
+        return ped_line
+
+    # if the family id is not valid, replace failing characters with underscores
+    split_line[0] = re.sub(r'[^A-Za-z0-9_]', '_', split_line[0])
+
+    # return the rebuilt string, with a newline at the end
+    return '\t'.join(split_line) + '\n'
+
+
+def make_combined_ped(cohort: 'MultiCohort', prefix: Path) -> Path:
+    """
+    Create cohort + ref panel PED.
+    Concatenating all samples across all datasets with ref panel
+
+    See #578 - there are restrictions on valid characters in PED file
+    """
+    combined_ped_path = prefix / 'ped_with_ref_panel.ped'
+    conf_ped_path = config_retrieve(['references', 'broad', 'ped_file'])
+    assert isinstance(conf_ped_path, str)
+    with combined_ped_path.open('w') as out:
+        with cohort.write_ped_file().open() as f:
+            # layer of family ID cleaning
+            for line in f:
+                out.write(clean_ped_family_ids(line))
+        # The ref panel PED doesn't have any header, so can safely concatenate:
+        with to_path(conf_ped_path).open() as f:
+            out.write(f.read())
+    return combined_ped_path
+
+
 def postprocess_calls(
-        ploidy_calls_path: 'Path',
-        shard_paths: 'dict[str, Path]',
+        ploidy_calls_path: Path,
+        shard_paths: dict[str, Path],
         sample_index: int,
         job_attrs: dict[str, str],
         output_prefix: str,
         clustered_vcf: str | None = None,
         intervals_vcf: str | None = None,
         qc_file: str | None = None,
-) -> 'Job':
+) -> 'BashJob':
     if any([clustered_vcf, intervals_vcf, qc_file]):
         assert all([clustered_vcf, intervals_vcf, qc_file]), [clustered_vcf, intervals_vcf, qc_file]
 
-    if clustered_vcf:
-        job_name = 'Postprocess gCNV calls with clustered VCF'
-    else:
-        job_name = 'Postprocess gCNV calls'
+    job_name = 'Postprocess gCNV calls with clustered VCF' if clustered_vcf else 'Postprocess gCNV calls'
 
-    job = get_batch().new_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
+    job = get_batch().new_bash_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
     job.image(image_path('gatk_gcnv'))
 
     # set highmem resources for this job
@@ -89,7 +144,6 @@ def postprocess_calls(
 
     extra_args = ''
     if clustered_vcf:
-        assert isinstance(intervals_vcf, str)
         local_clusters = get_batch().read_input_group(vcf=clustered_vcf, index=f'{clustered_vcf}.tbi').vcf
         local_intervals = get_batch().read_input_group(vcf=intervals_vcf, index=f'{intervals_vcf}.tbi').vcf
         extra_args += f"""--clustered-breakpoints {local_clusters} \
@@ -149,7 +203,7 @@ def postprocess_calls(
     return job
 
 
-def counts_input_args(counts_paths: list['Path']) -> str:
+def counts_input_args(counts_paths: list[Path]) -> str:
     args = ''
     for f in counts_paths:
         counts = get_batch().read_input_group(

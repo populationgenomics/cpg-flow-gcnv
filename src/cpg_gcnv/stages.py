@@ -10,10 +10,9 @@ from google.api_core.exceptions import PermissionDenied
 from loguru import logger
 
 from cpg_utils import to_path
-from cpg_utils.config import AR_GUID_NAME, config_retrieve, image_path, try_get_ar_guid
+from cpg_utils.config import AR_GUID_NAME, config_retrieve, try_get_ar_guid
 from cpg_utils.hail_batch import get_batch
 
-from cpg_utils.cloud import read_secret
 from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, SequencingGroupStage, stage
 from cpg_flow.workflow import get_workflow, get_multicohort
 
@@ -26,6 +25,13 @@ from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
 from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_calls
 from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
 from cpg_gcnv.jobs.JointSegmentCnvVcfs import run_joint_segmentation
+from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_calls
+from cpg_gcnv.jobs.FastCombineGCnvs import fast_merge_calls
+from cpg_gcnv.jobs.AnnotateCnvsWithSvAnnotate import queue_annotate_sv_jobs
+from cpg_gcnv.jobs.AnnotateCnvsWithStrvctvre import annotate_cnvs_with_strvctvre
+from cpg_gcnv.jobs.AnnotateCohortCnv import submit_annotate_cohort_job
+from cpg_gcnv.jobs.AnnotateDatasetCnv import submit_annotate_dataset_job
+from cpg_gcnv.jobs.MtToEsCnv import submit_es_job_for_dataset
 
 if TYPE_CHECKING:
     from cpg_utils import Path
@@ -34,19 +40,6 @@ if TYPE_CHECKING:
     from cpg_flow.targets.multicohort import MultiCohort
     from cpg_flow.targets.sequencing_group import SequencingGroup
     from cpg_flow.stage import StageInput, StageOutput
-
-
-@cache
-def es_password() -> str:
-    """
-    Get Elasticsearch password. Moved into a separate method to simplify
-    mocking in tests.
-    """
-    return read_secret(
-        project_id=config_retrieve(['elasticsearch', 'password_project_id']),
-        secret_name=config_retrieve(['elasticsearch', 'password_secret_id']),
-        fail_gracefully=False,
-    )
 
 
 @cache
@@ -119,14 +112,14 @@ class CollectReadCounts(SequencingGroupStage):
     Per-sample stage that runs CollectReadCounts to produce .counts.tsv.gz files.
     """
 
-    def expected_outputs(self, seqgroup: SequencingGroup) -> dict[str, 'Path | str']:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, 'Path' | str]:
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
             'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts')
         }
 
-    def queue_jobs(self, seqgroup: SequencingGroup, inputs: 'StageInput') -> 'StageOutput':
+    def queue_jobs(self, seqgroup: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(seqgroup)
 
         if seqgroup.cram is None:
@@ -156,7 +149,7 @@ class DeterminePloidy(CohortStage):
             'model': cohort_prefix / 'ploidy-model.tar.gz',
         }
 
-    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput | None':
+    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(cohort)
 
         prep_intervals = inputs.as_dict(get_multicohort(), PrepareIntervals)
@@ -424,7 +417,7 @@ class JointSegmentCnvVcfs(CohortStage):
 
 
 @stage(
-    required_stages=[SetSgIdOrder, JointSegmentCnvVcfs, CallGermlineCnvsWithGatk, ProcessCohortCnvCallsToSgVcf, DeterminePloidy],
+    required_stages=[JointSegmentCnvVcfs, CallGermlineCnvsWithGatk, ProcessCohortCnvCallsToSgVcf, DeterminePloidy],
 )
 class RecalculateClusteredQuality(SequencingGroupStage):
     """
@@ -436,7 +429,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
     This is done as another pass through PostprocessGermlineCNVCalls, with prior/clustered results
     """
 
-    def expected_outputs(self, seqgroup: SequencingGroup) -> dict[str, Path]:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, Path]:
 
         # identify the cohort that contains this SGID
         this_cohort = get_cohort_for_sgid(seqgroup.id)
@@ -469,7 +462,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
         # pull the json file with the sgid ordering
         sgid_ordering = fixed_sg_order(this_cohort)
 
-        jobs = gcnv.postprocess_calls(
+        jobs = recalculate_clustered_calls(
             ploidy_calls_path=determine_ploidy['calls'],
             shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
             sample_index=sgid_ordering.index(sequencing_group.id),
@@ -499,20 +492,17 @@ class FastCombineGCNVs(CohortStage):
             'combined_calls_index': cohort_prefix / 'gcnv_joint_call.vcf.bgz.tbi',
         }
 
-    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(cohort)
-
-        # do a slapdash bcftools merge on all input files...
         gcnv_vcfs = inputs.as_dict_by_target(RecalculateClusteredQuality)
         all_vcfs = [str(gcnv_vcfs[sgid]['genotyped_segments_vcf']) for sgid in cohort.get_sequencing_group_ids()]
 
-        job_or_none = gcnv.merge_calls(
+        jobs = fast_merge_calls(
             sg_vcfs=all_vcfs,
-            docker_image=image_path('sv_pipeline_docker'),
             job_attrs=self.get_job_attrs(cohort),
             output_path=outputs['combined_calls'],
         )
-        return self.make_outputs(cohort, data=outputs, jobs=job_or_none)
+        return self.make_outputs(cohort, data=outputs, jobs=jobs)
 
 
 @stage(required_stages=FastCombineGCNVs, analysis_type='cnv', analysis_keys=['merged_vcf'])
@@ -531,6 +521,7 @@ class MergeCohortsgCNV(MultiCohortStage):
 
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
+        re-uses the FastCombineGCNVs job to merge the 'Cohort'-level VCFs into a 'MultiCohort' VCF
 
         Args:
             multicohort ():
@@ -543,9 +534,8 @@ class MergeCohortsgCNV(MultiCohortStage):
         cohort_merges = inputs.as_dict_by_target(FastCombineGCNVs)
         cohort_vcfs = [str(cohort_merges[cohort.id]['combined_calls']) for cohort in multicohort.get_cohorts()]
 
-        job_or_none = gcnv.merge_calls(
+        job_or_none = fast_merge_calls(
             sg_vcfs=cohort_vcfs,
-            docker_image=image_path('sv_pipeline_docker'),
             job_attrs=self.get_job_attrs(multicohort),
             output_path=outputs['merged_vcf'],
         )
@@ -554,11 +544,10 @@ class MergeCohortsgCNV(MultiCohortStage):
 
 
 @stage(required_stages=MergeCohortsgCNV, analysis_type='cnv', analysis_keys=['annotated_vcf'])
-class AnnotateCNV(MultiCohortStage):
+class AnnotateCnvsWithSvAnnotate(MultiCohortStage):
     """
     Smaller, direct annotation using SvAnnotate
-    Add annotations, such as the inferred function and allele frequencies of variants,
-    to final VCF.
+    Add annotations, such as the inferred function and allele frequencies of variants, to final VCF.
 
     This is a full clone of the GATK-SV pipeline Cromwell stage, but use on a slightly
     different output. Trying to work out the best way to handle this through inheritance
@@ -580,142 +569,113 @@ class AnnotateCNV(MultiCohortStage):
             'annotated_vcf_index': prefix / 'merged_gcnv_annotated.vcf.bgz.tbi',
         }
 
-    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
         configure and queue jobs for SV annotation
         passing the VCF Index has become implicit, which may be a problem for us
         """
         expected_out = self.expected_outputs(multicohort)
 
-        billing_labels = {'stage': self.name.lower(), AR_GUID_NAME: try_get_ar_guid()}
-        job_or_none = queue_annotate_sv_jobs(
+        jobs = queue_annotate_sv_jobs(
             multicohort=multicohort,
             prefix=self.prefix,
             input_vcf=inputs.as_dict(multicohort, MergeCohortsgCNV)['merged_vcf'],
             outputs=expected_out,
-            labels=billing_labels,
+            labels={'stage': self.name.lower(), AR_GUID_NAME: try_get_ar_guid()},
         )
-        return self.make_outputs(multicohort, data=expected_out, jobs=job_or_none)
+        return self.make_outputs(multicohort, data=expected_out, jobs=jobs)
 
 
-@stage(required_stages=AnnotateCNV, analysis_type='cnv', analysis_keys=['strvctvre_vcf'])
-class AnnotateCNVVcfWithStrvctvre(MultiCohortStage):
-    def expected_outputs(self, multicohort: 'MultiCohort') -> dict[str, Path]:
-        prefix = self.prefix
-        return {
-            'strvctvre_vcf': prefix / 'cnv_strvctvre_annotated.vcf.bgz',
-            'strvctvre_vcf_index': prefix / 'cnv_strvctvre_annotated.vcf.bgz.tbi',
-        }
+@stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv', analysis_keys=['strvctvre_vcf'])
+class AnnotateCnvsWithStrvctvre(MultiCohortStage):
+    def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
+        return self.prefix / 'cnv_strvctvre_annotated.vcf.bgz'
 
-    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput' | None:
-        strv_job = get_batch().new_job('StrVCTVRE', self.get_job_attrs() | {'tool': 'strvctvre'})
+    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
+        output = self.expected_outputs(multicohort)
 
-        strv_job.image(image_path('strvctvre'))
-        strv_job.cpu(config_retrieve(['strvctvre_resources', 'cpu'], 2))
-        strv_job.memory(config_retrieve(['strvctvre_resources', 'memory'], '20Gi'))
-        strv_job.storage(config_retrieve(['strvctvre_resources', 'storage'], '20Gi'))
+        input_dict = inputs.as_dict(multicohort, AnnotateCnvsWithSvAnnotate)
 
-        strvctvre_phylop = config_retrieve(['references', 'gatk_sv', 'strvctvre_phylop'])
-        phylop_in_batch = get_batch().read_input(strvctvre_phylop)
-
-        input_dict = inputs.as_dict(multicohort, AnnotateCNV)
-        expected_d = self.expected_outputs(multicohort)
-
-        # read vcf and index into the batch
-        input_vcf = get_batch().read_input_group(
-            vcf=str(input_dict['annotated_vcf']),
-            vcf_index=str(input_dict['annotated_vcf_index']),
-        )['vcf']
-
-        strv_job.declare_resource_group(output_vcf={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
-
-        # run strvctvre
-        strv_job.command(f'python StrVCTVRE.py -i {input_vcf} -o temp.vcf -f vcf -p {phylop_in_batch}')
-        strv_job.command(f'bgzip temp.vcf -c > {strv_job.output_vcf["vcf.bgz"]}')  # type: ignore
-        strv_job.command(f'tabix {strv_job.output_vcf["vcf.bgz"]}')  # type: ignore
-
-        get_batch().write_output(
-            strv_job.output_vcf,
-            str(expected_d['strvctvre_vcf']).replace('.vcf.bgz', ''),
+        job = annotate_cnvs_with_strvctvre(
+            input_vcf=str(input_dict['annotated_vcf']),
+            input_vcf_index=str(input_dict['annotated_vcf_index']),
+            output_vcf=str(output),
+            job_attrs=self.get_job_attrs() | {'tool': 'strvctvre'}
         )
-        return self.make_outputs(multicohort, data=expected_d, jobs=strv_job)
+
+        return self.make_outputs(multicohort, data=output, jobs=job)
 
 
-@stage(required_stages=AnnotateCNVVcfWithStrvctvre, analysis_type='cnv', analysis_keys=['mt'])
-class AnnotateCohortgCNV(MultiCohortStage):
+@stage(required_stages=AnnotateCnvsWithStrvctvre, analysis_type='cnv')
+class AnnotateCohortCnv(MultiCohortStage):
     """
     Rearrange the annotations across the cohort to suit Seqr
     """
 
-    def expected_outputs(self, multicohort: 'MultiCohort') -> dict[str, Path]:
-        return {'mt': self.prefix / 'gcnv_annotated_cohort.mt'}
+    def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
+        return self.prefix / 'gcnv_annotated_cohort.mt'
 
-    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
         Fire up the job to ingest the cohort VCF as a MT, and rearrange the annotations
         """
 
-        vcf_path = str(inputs.as_path(target=multicohort, stage=AnnotateCNVVcfWithStrvctvre, key='strvctvre_vcf'))
-        outputs = self.expected_outputs(multicohort)
+        vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCnvsWithStrvctvre, key='strvctvre_vcf')
 
-        j = get_batch().new_job('annotate gCNV cohort', self.get_job_attrs(multicohort))
-        j.image(config_retrieve(['workflow', 'driver_image']))
-        gencode_gz = config_retrieve(['workflow', 'gencode_gtf_file'])
-        gencode_gtf_local = get_batch().read_input(str(gencode_gz))
-        j.command(
-            'seqr_loader_cnv '
-            f'--mt_out {outputs["mt"]!s} '
-            f'--checkpoint {self.tmp_prefix / "checkpoints"!s} '
-            f'cohort '  # use the annotate_COHORT functionality
-            f'--vcf {vcf_path} '
-            f'--gencode {gencode_gtf_local} ',
+        output = self.expected_outputs(multicohort)
+
+        job = submit_annotate_cohort_job(
+            input_vcf=vcf_path,
+            output_mt=output,
+            checkpoint=self.tmp_prefix / 'checkpoints',
+            attributes=self.get_job_attrs(multicohort),
         )
 
-        return self.make_outputs(multicohort, data=outputs, jobs=j)
+        return self.make_outputs(multicohort, data=output, jobs=job)
 
 
-@stage(required_stages=AnnotateCohortgCNV, analysis_type='cnv', analysis_keys=['mt'])
-class AnnotateDatasetCNV(DatasetStage):
+@stage(required_stages=AnnotateCohortCnv, analysis_type='cnv', analysis_keys=['mt'])
+class AnnotateDatasetCnv(DatasetStage):
     """
     Subset the MT to be this 'Dataset' only, then work up all the genotype values
     """
 
-    def expected_outputs(self, dataset: 'Dataset') -> dict[str, Path]:
+    def expected_outputs(self, dataset: 'Dataset') -> 'Path':
         """
         Expected to generate a matrix table
         """
-        return {'mt': dataset.prefix() / 'mt' / f'gCNV-{get_workflow().output_version}-{dataset.name}.mt'}
+        return dataset.prefix() / 'mt' / f'gCNV-{get_workflow().output_version}-{dataset.name}.mt'
 
-    def queue_jobs(self, dataset: 'Dataset', inputs: 'StageInput') -> 'StageOutput' | None:
+    def queue_jobs(self, dataset: 'Dataset', inputs: 'StageInput') -> 'StageOutput':
         """
         Subsets the multicohort MT to this dataset only, then brings genotype data into row annotations
+
         Args:
-            dataset ('Dataset'): SGIDs specific to this dataset/project
-            inputs ('StageInput'): results of AnnotateCohortgCNV for this 'MultiCohort'
+            dataset ():
+            inputs ():
         """
 
-        mt_in = inputs.as_path(target=get_multicohort(), stage=AnnotateCohortgCNV, key='mt')
-        outputs = self.expected_outputs(dataset)
+        mt_in = inputs.as_str(target=get_multicohort(), stage=AnnotateCohortCnv, key='mt')
 
-        jobs = gcnv.annotate_dataset_jobs_cnv(
-            mt_path=mt_in,
-            sgids=dataset.get_sequencing_group_ids(),
-            out_mt_path=str(outputs['mt']),
-            tmp_prefix=self.tmp_prefix / dataset.name / 'checkpoints',
-            job_attrs=self.get_job_attrs(dataset),
+        output = self.expected_outputs(dataset)
+
+        job = submit_annotate_dataset_job(
+            input_mt=mt_in,
+            output_mt=output,
+            attributes=self.get_job_attrs(dataset)
         )
 
-        return self.make_outputs(dataset, data=outputs, jobs=jobs)
+        return self.make_outputs(dataset, data=output, jobs=job)
 
 
 @stage(
-    required_stages=[AnnotateDatasetCNV],
+    required_stages=[AnnotateDatasetCnv],
     analysis_type='es-index',
     analysis_keys=['index_name'],
     # https://github.com/populationgenomics/metamist/issues/539
     update_analysis_meta=lambda x: {'seqr-dataset-type': 'CNV'},
 )
-class MtToEsCNV(DatasetStage):
+class MtToEsCnv(DatasetStage):
     """
     Create a Seqr index
     """
@@ -744,37 +704,16 @@ class MtToEsCNV(DatasetStage):
             inputs ():
         """
 
-        # try to generate a password here - we'll find out inside the script anyway, but
-        # by that point we'd already have localised the MT, wasting time and money
-        try:
-            _es_password_string = es_password()
-        except PermissionDenied:
-            logger.warning(f'No permission to access ES password, skipping for {dataset}')
-            return self.make_outputs(dataset)
-        except KeyError:
-            logger.warning(f'ES section not in config, skipping for {dataset}')
-            return self.make_outputs(dataset)
-
         # get the absolute path to the MT
-        mt_path = str(inputs.as_path(target=dataset, stage=AnnotateDatasetCNV, key='mt'))
-        # and just the name, used after localisation
-        mt_name = mt_path.split('/')[-1]
+        mt_path = inputs.as_str(target=dataset, stage=AnnotateDatasetCnv, key='mt')
 
         outputs = self.expected_outputs(dataset)
 
-        # get the expected outputs as Strings
-        index_name = str(outputs['index_name'])
-        flag_name = str(outputs['done_flag'])
-
-        job = get_batch().new_job(f'Generate {index_name} from {mt_path}')
-
-        # set all job attributes in one bash
-        job.cpu(4).memory('lowmem').storage('10Gi').image(config_retrieve(['workflow', 'driver_image']))
-
-        # localise the MT
-        job.command(f'gcloud --no-user-output-enabled storage cp -r {mt_path} $BATCH_TMPDIR')
-
-        # run the export from the localised MT - this job writes no new data, just transforms and exports over network
-        job.command(f'mt_to_es --mt_path "${{BATCH_TMPDIR}}/{mt_name}" --index {index_name} --flag {flag_name}')
+        job = submit_es_job_for_dataset(
+            mt_path=mt_path,
+            index_name=outputs['index_name'],
+            done_flag=outputs['done_flag'],
+            dataset=dataset.name
+        )
 
         return self.make_outputs(dataset, data=outputs, jobs=job)

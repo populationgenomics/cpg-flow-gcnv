@@ -7,7 +7,21 @@ from cpg_flow.resources import HIGHMEM
 
 if TYPE_CHECKING:
     from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
+
+
+def counts_input_getter(counts_paths: list['Path']) -> str:
+    args = ''
+    for f in counts_paths:
+        counts = get_batch().read_input_group(
+            **{
+                'counts.tsv.gz': str(f),
+                'counts.tsv.gz.tbi': str(f) + '.tbi',
+            },
+        )
+        args += f' --input {counts["counts.tsv.gz"]}'
+
+    return args
 
 
 def filter_and_determine_ploidy(
@@ -17,8 +31,8 @@ def filter_and_determine_ploidy(
     counts_paths: list['Path'],
     job_attrs: dict[str, str],
     output_paths: dict[str, 'Path'],
-) -> 'Job':
-    job = get_batch().new_job(
+) -> 'BashJob':
+    job = get_batch().new_bash_job(
         'Filter intervals and determine ploidy',
         job_attrs
         | {
@@ -31,16 +45,16 @@ def filter_and_determine_ploidy(
     job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=10)
     job_res.set_to_job(job)
 
-    counts_input_args = counts_input_args(counts_paths)
+    counts_input_args = counts_input_getter(counts_paths)
 
     preprocessed_intervals = get_batch().read_input(str(preprocessed_intervals_path))
     annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
 
     job.command(f"""
-    gatk --java-options "{job_res.java_mem_options()}" FilterIntervals \\
-      --interval-merging-rule OVERLAPPING_ONLY \\
-      --intervals {preprocessed_intervals} --annotated-intervals {annotated_intervals} \\
-      {counts_input_args} \\
+    gatk --java-options "{job_res.java_mem_options()}" FilterIntervals \
+      --interval-merging-rule OVERLAPPING_ONLY \
+      --intervals {preprocessed_intervals} --annotated-intervals {annotated_intervals} \
+      {counts_input_args} \
       --output {job.filtered}
     """)
 
