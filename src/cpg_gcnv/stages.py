@@ -6,7 +6,6 @@ import json
 from functools import cache
 from typing import TYPE_CHECKING
 
-from google.api_core.exceptions import PermissionDenied
 from loguru import logger
 
 from cpg_utils import to_path
@@ -56,7 +55,7 @@ def get_cohort_for_sgid(sgid: str) -> 'Cohort':
 
 
 @cache
-def fixed_sg_order(cohort: Cohort) -> list[str]:
+def fixed_sg_order(cohort: 'Cohort') -> list[str]:
     """
     using a method instead of a Stage - get the sorted list of IDs in this cohort
 
@@ -94,7 +93,7 @@ class PrepareIntervals(MultiCohortStage):
     This is a multicohort stage - we only ever co-process SGIDs on a unified capture
     """
 
-    def expected_outputs(self, multicohort: 'MultiCohort') -> dict[str, Path]:
+    def expected_outputs(self, multicohort: 'MultiCohort') -> dict[str, 'Path']:
         return {
             'preprocessed': self.prefix / 'preprocessed.interval_list',
             'annotated': self.prefix / 'annotated_intervals.tsv',
@@ -177,7 +176,7 @@ class UpgradePedWithInferred(CohortStage):
     Don't trust the metamist pedigrees, update with inferred sexes
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path']:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'aneuploidy_samples': cohort_prefix / 'aneuploidies.txt',
@@ -205,7 +204,7 @@ class CallGermlineCnvsWithGatk(CohortStage):
     stage can pick out this stage's sharded inputs easily.
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path']:
         return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput | None':
@@ -235,13 +234,13 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, Path]:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, 'Path']:
         """
         output paths here are per-SGID, but stored in the directory structure indicating the whole MCohort
         """
 
         # identify the cohort that contains this SGID
-        this_cohort: Cohort = get_cohort_for_sgid(seqgroup.id)
+        this_cohort: 'Cohort' = get_cohort_for_sgid(seqgroup.id)
 
         # this job runs per sample, on results with a cohort context
         # so we need to write the outputs to a cohort-specific location
@@ -254,7 +253,7 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
             'ratios': cohort_prefix / f'{seqgroup.id}.ratios.tsv',
         }
 
-    def queue_jobs(self, seqgroup: SequencingGroup, inputs: 'StageInput') -> 'StageOutput':
+    def queue_jobs(self, seqgroup: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
         outputs = self.expected_outputs(seqgroup)
 
         # identify the cohort that contains this SGID
@@ -283,11 +282,11 @@ class TrimOffSexChromosomes(CohortStage):
     isn't relevant to determining aneuploidy. As a result we're happy writing this to a 'Cohort'-specific path
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path | str]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path' | str]:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
         # returning an empty dictionary might cause the pipeline setup to break?
-        return_dict: 'dict[str, Path | str]' = {
+        return_dict: dict[str, 'Path' | str] = {
             'placeholder': str(cohort_prefix / 'placeholder.txt'),
         }
 
@@ -361,7 +360,7 @@ class JointSegmentCnvVcfs(CohortStage):
     takes the individual VCFs and runs the joint segmentation step
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path']:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'clustered_vcf': cohort_prefix / 'JointClusteredSegments.vcf.gz',
@@ -429,7 +428,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
     This is done as another pass through PostprocessGermlineCNVCalls, with prior/clustered results
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, Path]:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, 'Path']:
 
         # identify the cohort that contains this SGID
         this_cohort = get_cohort_for_sgid(seqgroup.id)
@@ -447,7 +446,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
             'qc_status_file': cohort_prefix / f'{seqgroup.id}.qc_status.txt',
         }
 
-    def queue_jobs(self, sequencing_group: SequencingGroup, inputs: 'StageInput') -> 'StageOutput':
+    def queue_jobs(self, sequencing_group: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
         expected_out = self.expected_outputs(sequencing_group)
 
         # identify the cohort that contains this SGID
@@ -481,7 +480,7 @@ class FastCombineGCNVs(CohortStage):
     Produces final multi-sample VCF results by running a merge
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, Path]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path']:
         """
         This is now explicitly continuing from multicohort work, so the output path must include
         pointers to both the 'MultiCohort' and the 'Cohort'

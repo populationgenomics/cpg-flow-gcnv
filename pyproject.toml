@@ -44,7 +44,7 @@ test = [
 
 [project.scripts]
 # the workflow runner script - entrypoint for the pipeline
-run_workflow = 'workflow_name.run_workflow:cli_main'
+run_workflow = 'cpg_gcnv.run_workflow:cli_main'
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -110,3 +110,8 @@ ignore = [
 
 [tool.ruff.lint.isort]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.per-file-ignores]
+# suppress the ARG002 "Unused method argument" warning in the stages.py file
+## - we don't need generic cpg-flow arguments for every Stage, but need to fit the required method signature
+"src/cpg_gcnv/stages.py" = ["ARG002"]

@@ -64,7 +64,7 @@ def run_joint_segmentation(
     pedigree: str,
     intervals: str,
     tmp_prefix: str,
-    output_path: Path,
+    output_path: 'Path',
     job_attrs: dict[str, str] | None = None,
 ) -> 'list[BashJob]':
     """

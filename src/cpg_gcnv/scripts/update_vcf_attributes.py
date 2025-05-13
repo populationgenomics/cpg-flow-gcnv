@@ -19,46 +19,45 @@ def update_vcf_attributes(input_tmp: str, output_file: str):
     """
 
     # read the merged gVCF
-    with gzip.open(input_tmp, 'rt') as f:
-        with gzip.open(output_file, 'wt') as f_out:
-            for line in f:
-                # don't alter current header lines
-                if line.startswith('#'):
-                    f_out.write(line)
-                    continue
+    with gzip.open(input_tmp, 'rt') as f, gzip.open(output_file, 'wt') as f_out:
+        for line in f:
+            # don't alter current header lines
+            if line.startswith('#'):
+                f_out.write(line)
+                continue
 
-                # for non-header lines, split on tabs
-                l_split = line.split('\t')
+            # for non-header lines, split on tabs
+            l_split = line.split('\t')
 
-                # don't bother with null/WT/missing alleles
-                if l_split[4] == '.':
-                    continue
+            # don't bother with null/WT/missing alleles
+            if l_split[4] == '.':
+                continue
 
-                original_start = int(l_split[1])
+            original_start = int(l_split[1])
 
-                # e.g. AN_Orig=61;END=56855888;SVTYPE=DUP
-                original_info: dict[str, str] = dict(el.split('=') for el in l_split[7].split(';'))
+            # e.g. "AN_Orig=61;END=56855888;SVTYPE=DUP"
+            original_info: dict[str, str] = dict(el.split('=') for el in l_split[7].split(';'))
 
-                # steal the END integer
-                end_int = int(original_info['END'])
+            # steal the END integer
+            end_int = int(original_info['END'])
 
-                # e.g. <DEL> -> DEL
-                alt_allele = l_split[4][1:-1]
+            # e.g. <DEL> -> DEL
+            alt_allele = l_split[4][1:-1]
 
-                # replace compound ID original ID
-                chrom = l_split[0]
-                start = l_split[1]
+            # replace compound ID original ID
+            chrom = l_split[0]
+            start = l_split[1]
 
-                # make this unique after splitting (include alt allele)
-                l_split[2] = f'CNV_{chrom}_{start}_{end_int}_{alt_allele}'
+            # make this unique after splitting (include alt allele)
+            l_split[2] = f'CNV_{chrom}_{start}_{end_int}_{alt_allele}'
 
-                # update the INFO field with Length and Type (DUP/DEL, not "CNV")
-                original_info['SVLEN'] = str(end_int - original_start)
-                l_split[7] = ';'.join(f'{k}={v}' for k, v in original_info.items())
+            # update the INFO field with Length and Type (DUP/DEL, not "CNV")
+            original_info['SVLEN'] = str(end_int - original_start)
+            l_split[7] = ';'.join(f'{k}={v}' for k, v in original_info.items())
 
-                # put it together and what have you got?
-                # bippidy boppidy boo
-                f_out.write('\t'.join(l_split))
+            # put it together and what have you got?
+            # bippidy boppidy boo
+            f_out.write('\t'.join(l_split))
 
 
 if __name__ == '__main__':

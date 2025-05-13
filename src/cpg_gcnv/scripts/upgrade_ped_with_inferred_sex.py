@@ -82,13 +82,12 @@ def update_pedigree(original_ped: str, new_ped: str, new_sexes: dict[str, str]):
         new_sexes (dict[str, int]):
     """
 
-    with open(original_ped) as handle:
-        with open(new_ped, 'w') as out_handle:
-            for line in handle:
-                l_list = line.split()
-                sgid = l_list[1]
-                l_list[5] = new_sexes[sgid]
-                out_handle.write('\t'.join(l_list) + '\n')
+    with open(original_ped) as handle, open(new_ped, 'w') as out_handle:
+        for line in handle:
+            l_list = line.split()
+            sgid = l_list[1]
+            l_list[5] = new_sexes[sgid]
+            out_handle.write('\t'.join(l_list) + '\n')
 
 
 if __name__ == '__main__':

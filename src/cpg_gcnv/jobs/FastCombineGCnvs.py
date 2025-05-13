@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def fast_merge_calls(
         sg_vcfs: list[str],
         job_attrs: dict[str, str],
-        output_path: Path
+        output_path: 'Path'
 ) -> list[BashJob]:
     """
     This job will run a fast simple merge on per-SGID call files
@@ -43,7 +43,7 @@ def fast_merge_calls(
     if len(batch_vcfs) == 0:
         raise ValueError('No VCFs to merge')
 
-    elif len(batch_vcfs) == 1:
+    if len(batch_vcfs) == 1:
         merge_job.tmp_vcf = batch_vcfs[0]
 
     else:

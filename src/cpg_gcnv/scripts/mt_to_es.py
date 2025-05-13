@@ -143,12 +143,7 @@ class ElasticsearchClient:
             if LOADING_NODES_NAME not in shards:
                 logging.warning("Shards are on {}".format(shards))
                 return
-            logging.warning(
-                "Waiting for {} shards to transfer off the es-data-loading nodes: \n{}".format(
-                    len(shards.strip().split("\n")),
-                    shards,
-                ),
-            )
+            logging.warning(f'Waiting for shards to transfer off the es-data-loading nodes: \n{shards}')
             time.sleep(5)
 
         raise Exception('Shards did not transfer off loading nodes')

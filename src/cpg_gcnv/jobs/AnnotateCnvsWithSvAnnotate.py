@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 from random import randint
 
+from cpg_utils import Path
 from cpg_utils.config import config_retrieve
 from cpg_utils.hail_batch import get_batch, authenticate_cloud_credentials_in_job
 from cpg_utils.cromwell import CromwellOutputType, run_cromwell_workflow_from_repo_and_get_outputs
@@ -10,7 +11,6 @@ from cpg_gcnv.utils import make_combined_ped
 
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
     from cpg_flow.targets import MultiCohort
     from hailtop.batch.job import BashJob
 
@@ -20,8 +20,8 @@ ANNOTATION_WORKFLOW = 'AnnotateVcf'
 
 def queue_annotate_sv_jobs(
     multicohort: 'MultiCohort',
-    prefix: 'Path',
-    input_vcf: 'Path',
+    prefix: Path,
+    input_vcf: Path,
     outputs: dict,
     labels: dict[str, str],
 ) -> 'list[BashJob]':

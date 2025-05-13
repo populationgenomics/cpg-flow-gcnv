@@ -38,8 +38,8 @@ def annotate_cnvs_with_strvctvre(
 
     # run strvctvre
     job.command(f'python StrVCTVRE.py -i {input_vcf} -o temp.vcf -f vcf -p {phylop_in_batch}')
-    job.command(f'bgzip temp.vcf -c > {job.output_vcf["vcf.bgz"]}')  # type: ignore
-    job.command(f'tabix {job.output_vcf["vcf.bgz"]}')  # type: ignore
+    job.command(f'bgzip temp.vcf -c > {job.output_vcf["vcf.bgz"]}')
+    job.command(f'tabix {job.output_vcf["vcf.bgz"]}')
 
     get_batch().write_output(
         job.output_vcf,
