@@ -14,7 +14,7 @@ def fast_merge_calls(
         sg_vcfs: list[str],
         job_attrs: dict[str, str],
         output_path: 'Path'
-) -> list[BashJob]:
+) -> list['BashJob']:
     """
     This job will run a fast simple merge on per-SGID call files
     It then throws in a python script to add in two additional header lines
