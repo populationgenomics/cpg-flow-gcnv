@@ -94,7 +94,7 @@ class CollectReadCounts(SequencingGroupStage):
     Per-sample stage that runs CollectReadCounts to produce .counts.tsv.gz files.
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> dict[str, 'Path' | str]:
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path | str]':
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
