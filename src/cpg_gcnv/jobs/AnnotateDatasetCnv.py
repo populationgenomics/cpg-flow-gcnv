@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 
 
 def submit_annotate_dataset_job(
-        input_mt: str,
-        output_mt: str,
-        attributes: dict[str, str],
+    input_mt: str,
+    output_mt: str,
+    attributes: dict[str, str],
 ) -> 'BashJob':
     """
     Submit a job to annotate a cohort with GATK SV
@@ -22,9 +22,7 @@ def submit_annotate_dataset_job(
     job.image(config_retrieve(['workflow', 'driver_image']))
 
     job.command(
-        f'{annotate_dataset.__file__} '
-        f'--mt_in {input_mt} '
-        f'--mt_out {output_mt} ',
+        f'{annotate_dataset.__file__} --mt_in {input_mt} --mt_out {output_mt} ',
     )
 
     return job

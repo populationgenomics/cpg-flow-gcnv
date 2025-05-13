@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from cpg_gcnv.utils import postprocess_calls

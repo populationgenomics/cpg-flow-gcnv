@@ -9,6 +9,12 @@ from argparse import ArgumentParser
 from os import listdir
 from os.path import join
 
+# ruff absolutely hates 'magic numbers', so add some numeric constants
+X_FEMALE: int = 2
+Y_FEMALE: int = 0
+X_MALE: int = 1
+Y_MALE: int = 1
+
 
 def find_sex(x_ploidy: int | None, y_ploidy: int | None) -> str:
     """
@@ -24,9 +30,9 @@ def find_sex(x_ploidy: int | None, y_ploidy: int | None) -> str:
         0 = unknown/other
     """
 
-    if x_ploidy == 1 and y_ploidy == 1:
+    if x_ploidy == X_MALE and y_ploidy == Y_MALE:
         return '1'
-    if x_ploidy == 2 and y_ploidy == 0:
+    if x_ploidy == X_FEMALE and y_ploidy == Y_FEMALE:
         return '2'
     # unacceptableeeee!
     return '0'

@@ -80,11 +80,13 @@ extend-exclude = ["venv", ".mypy_cache", ".venv", "build", "dist"]
 
 [tool.ruff.format]
 indent-style = 'space'
-quote-style = "single"
+quote-style = 'single'
 
 [tool.ruff.lint]
 # ignore pydocstyle, flake8-boolean-trap (FBT)
 select = ["A", "B", "C", "E", "F", "G", "I", "N", "Q", "S", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "ERA", "EXE", "ICN", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "UP", "YTT"]
+
+extend-select = ["I"]
 
 fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "ERA", "EXE", "FBT", "ICN", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "UP", "YTT"]
 
@@ -97,18 +99,21 @@ ignore = [
     "ANN204", # Missing type annotation for special method `__init__`
     "COM812", # Trailing comma prohibited
     "E731", # Do not assign a lambda expression, use a def
-    "G004", # Logging statement uses f-string
     "PLW0603", # Using the global statement to update `<VAR>` is discouraged
     "Q000", # Single quotes found but double quotes preferred
-    "S101", # Use of assert detected
     "PLR0912", # Too many branches (> 12)
     "PLR0913", # Too many arguments in function (> 5)
     "C901", # method is too complex (> 10 conditions)
-    "N999", # invalid module name (not lower-case and potholes)
+    "Q003",
 ]
 
+
 [tool.ruff.lint.isort]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+section-order = ["future", "standard-library", "third-party", "hail", "cpg", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+cpg = ["metamist", "talos"]
+hail = ["hail"]
 
 [tool.ruff.lint.per-file-ignores]
 # suppress the ARG002 "Unused method argument" warning in the stages.py file

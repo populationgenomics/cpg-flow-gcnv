@@ -7,9 +7,10 @@ import gzip
 from argparse import ArgumentParser
 from os.path import join
 
-import hail as hl
 from cpg_utils.hail_batch import genome_build, init_batch
 from loguru import logger
+
+import hail as hl
 
 # I'm just going to go ahead and steal these constants from their seqr loader
 GENE_SYMBOL = 'gene_symbol'

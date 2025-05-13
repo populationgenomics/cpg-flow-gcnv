@@ -95,7 +95,7 @@ class CollectReadCounts(SequencingGroupStage):
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
-            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts')
+            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts'),
         }
 
     def queue_jobs(self, seqgroup: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
@@ -281,13 +281,10 @@ class TrimOffSexChromosomes(CohortStage):
         aneuploid_samples: list[str] = config_retrieve(['gCNV', 'aneuploid_samples'], [])
 
         if (aneuploidy_path := to_path(aneuploidy_file)).exists():
-
             # read the identified aneuploidy samples file
             with aneuploidy_path.open() as handle:
-
                 # iterate over the lines
                 for line in handle:
-
                     # find the SGID
                     sgid = line.strip()
 
@@ -318,9 +315,7 @@ class TrimOffSexChromosomes(CohortStage):
 
         cohort_segment_vcfs = {sgid: germline_calls[sgid]['segments'] for sgid in cohort.get_sequencing_group_ids()}
         jobs = trim_sex_chromosomes(
-            sgid_to_output=expected,
-            segment_vcfs=cohort_segment_vcfs,
-            job_attrs=self.get_job_attrs(cohort)
+            sgid_to_output=expected, segment_vcfs=cohort_segment_vcfs, job_attrs=self.get_job_attrs(cohort)
         )
         return self.make_outputs(cohort, data=expected, jobs=jobs)
 
@@ -409,7 +404,6 @@ class RecalculateClusteredQuality(SequencingGroupStage):
     """
 
     def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path | str]':
-
         # identify the cohort that contains this SGID
         this_cohort = get_cohort_for_sgid(seqgroup.id)
 
@@ -579,7 +573,7 @@ class AnnotateCnvsWithStrvctvre(MultiCohortStage):
             input_vcf=str(input_dict['annotated_vcf']),
             input_vcf_index=str(input_dict['annotated_vcf_index']),
             output_vcf=str(output),
-            job_attrs=self.get_job_attrs() | {'tool': 'strvctvre'}
+            job_attrs=self.get_job_attrs() | {'tool': 'strvctvre'},
         )
 
         return self.make_outputs(multicohort, data=output, jobs=job)
@@ -638,11 +632,7 @@ class AnnotateDatasetCnv(DatasetStage):
 
         output = self.expected_outputs(dataset)
 
-        job = submit_annotate_dataset_job(
-            input_mt=mt_in,
-            output_mt=output,
-            attributes=self.get_job_attrs(dataset)
-        )
+        job = submit_annotate_dataset_job(input_mt=mt_in, output_mt=output, attributes=self.get_job_attrs(dataset))
 
         return self.make_outputs(dataset, data=output, jobs=job)
 
@@ -652,7 +642,7 @@ class AnnotateDatasetCnv(DatasetStage):
     analysis_type='es-index',
     analysis_keys=['index_name'],
     # https://github.com/populationgenomics/metamist/issues/539
-    update_analysis_meta=lambda x: {'seqr-dataset-type': 'CNV'},
+    update_analysis_meta=lambda x: {'seqr-dataset-type': 'CNV'},  # noqa: ARG005
 )
 class MtToEsCnv(DatasetStage):
     """
@@ -689,10 +679,7 @@ class MtToEsCnv(DatasetStage):
         outputs = self.expected_outputs(dataset)
 
         job = submit_es_job_for_dataset(
-            mt_path=mt_path,
-            index_name=outputs['index_name'],
-            done_flag=outputs['done_flag'],
-            dataset=dataset.name
+            mt_path=mt_path, index_name=outputs['index_name'], done_flag=outputs['done_flag'], dataset=dataset.name
         )
 
         return self.make_outputs(dataset, data=outputs, jobs=job)

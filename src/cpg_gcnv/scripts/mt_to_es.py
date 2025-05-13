@@ -6,18 +6,18 @@ https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7
 https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/luigi_pipeline/lib/hail_tasks.py
 """
 
-import logging
 import math
 import time
 from argparse import ArgumentParser
 from io import StringIO
-from sys import exit
 
 import elasticsearch
-import hail as hl
 from cpg_utils import to_path
 from cpg_utils.cloud import read_secret
 from cpg_utils.config import config_retrieve
+from loguru import logger
+
+import hail as hl
 
 # CONSTANTS stolen from https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/hail_scripts/elasticsearch/elasticsearch_utils.py#L13
 # make encoded values as human-readable as possible
@@ -37,14 +37,14 @@ ES_FIELD_NAME_SPECIAL_CHAR_MAP = {
 }
 
 HAIL_TYPE_TO_ES_TYPE_MAPPING = {
-    hl.tint: "integer",
-    hl.tint32: "integer",
-    hl.tint64: "long",
-    hl.tfloat: "double",
-    hl.tfloat32: "float",
-    hl.tfloat64: "double",
-    hl.tstr: "keyword",
-    hl.tbool: "boolean",
+    hl.tint: 'integer',
+    hl.tint32: 'integer',
+    hl.tint64: 'long',
+    hl.tfloat: 'double',
+    hl.tfloat32: 'float',
+    hl.tfloat64: 'double',
+    hl.tstr: 'keyword',
+    hl.tbool: 'boolean',
 }
 
 # used in wait_for_shard_transfer
@@ -59,16 +59,16 @@ def _elasticsearch_mapping_for_type(dtype):
     https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/hail_scripts/elasticsearch/elasticsearch_utils.py#L53
     """
     if isinstance(dtype, hl.tstruct):
-        return {"properties": {field: _elasticsearch_mapping_for_type(dtype[field]) for field in dtype.fields}}
+        return {'properties': {field: _elasticsearch_mapping_for_type(dtype[field]) for field in dtype.fields}}
     if isinstance(dtype, hl.tarray | hl.tset):
         element_mapping = _elasticsearch_mapping_for_type(dtype.element_type)
         if isinstance(dtype.element_type, hl.tstruct):
-            element_mapping["type"] = "nested"
+            element_mapping['type'] = 'nested'
         return element_mapping
     if isinstance(dtype, hl.tlocus):
-        return {"type": "object", "properties": {"contig": {"type": "keyword"}, "position": {"type": "integer"}}}
+        return {'type': 'object', 'properties': {'contig': {'type': 'keyword'}, 'position': {'type': 'integer'}}}
     if dtype in HAIL_TYPE_TO_ES_TYPE_MAPPING:
-        return {"type": HAIL_TYPE_TO_ES_TYPE_MAPPING[dtype]}
+        return {'type': HAIL_TYPE_TO_ES_TYPE_MAPPING[dtype]}
 
     # tdict, ttuple, tlocus, tinterval, tcall
     raise NotImplementedError
@@ -128,7 +128,7 @@ class ElasticsearchClient:
         self.es = elasticsearch.Elasticsearch(_host, basic_auth=(self._es_username, self._es_password))
 
         # check connection
-        logging.info(self.es.info())
+        logger.info(self.es.info())
 
     def wait_for_shard_transfer(self, index_name, num_attempts=1000):
         """
@@ -138,9 +138,9 @@ class ElasticsearchClient:
         for i in range(num_attempts):
             shards = self.es.cat.shards(index=index_name)
             if LOADING_NODES_NAME not in shards:
-                logging.warning(f"Shards are on {shards}")
+                logger.warning(f'Shards are on {shards}')
                 return
-            logging.warning(f'Waiting for shards to transfer off the es-data-loading nodes: \n{shards}')
+            logger.warning(f'Waiting for shards to transfer off the es-data-loading nodes: \n{shards}')
             time.sleep(5)
 
         raise Exception('Shards did not transfer off loading nodes')
@@ -162,7 +162,7 @@ class ElasticsearchClient:
         index_mapping = {'properties': elasticsearch_schema}
 
         if _meta:
-            logging.info(f'==> index _meta: {_meta}')
+            logger.info(f'==> index _meta: {_meta}')
             index_mapping['_meta'] = _meta
 
         if not self.es.indices.exists(index=index_name):
@@ -177,8 +177,8 @@ class ElasticsearchClient:
                 },
             }
 
-            logging.info(f'create_mapping - elasticsearch schema: \n{elasticsearch_schema}')
-            logging.info(f'==> creating elasticsearch index {index_name}')
+            logger.info(f'create_mapping - elasticsearch schema: \n{elasticsearch_schema}')
+            logger.info(f'==> creating elasticsearch index {index_name}')
 
             self.es.indices.create(index=index_name, body=body)
 
@@ -209,7 +209,7 @@ class ElasticsearchClient:
             encoded_name = field_name
 
             # optionally replace . with _ in a non-reversible way
-            encoded_name = encoded_name.replace(".", '_')
+            encoded_name = encoded_name.replace('.', '_')
 
             # replace all other special chars with an encoding that's uglier, but reversible
             encoded_name = encode_field_name(encoded_name)
@@ -218,15 +218,14 @@ class ElasticsearchClient:
                 rename_dict[field_name] = encoded_name
 
         for original_name, encoded_name in rename_dict.items():
-            logging.info(f'Encoding column name {original_name} to {encoded_name}')
+            logger.info(f'Encoding column name {original_name} to {encoded_name}')
 
         table = table.rename(rename_dict)
 
         # create elasticsearch index with fields that match the ones in the table
-        elasticsearch_schema = _elasticsearch_mapping_for_type(table.key_by().row_value.dtype)["properties"]
+        elasticsearch_schema = _elasticsearch_mapping_for_type(table.key_by().row_value.dtype)['properties']
 
         index_name = kwargs['index_name']
-        assert index_name
 
         if self.es.indices.exists(index=index_name):
             self.es.indices.delete(index=index_name)
@@ -240,13 +239,11 @@ class ElasticsearchClient:
 
 
 def main():
-
     parser = ArgumentParser(description='Argument Parser for the ES generation script')
     parser.add_argument('--mt_path', help='MT path name', required=True)
     parser.add_argument('--index', help='ES index name', required=True)
     parser.add_argument('--flag', help='ES index "DONE" file path')
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
 
     password: str | None = read_secret(
         project_id=config_retrieve(['elasticsearch', 'password_project_id'], ''),
@@ -256,13 +253,13 @@ def main():
 
     # no password, but we fail gracefully
     if password is None:
-        logging.warning(f'No permission to access ES password, skipping creation of {args.index}')
+        logger.warning(f'No permission to access ES password, skipping creation of {args.index}')
         exit(0)
 
     host = config_retrieve(['elasticsearch', 'host'])
     port = config_retrieve(['elasticsearch', 'port'])
     username = config_retrieve(['elasticsearch', 'username'])
-    logging.info(f'Connecting to ElasticSearch: host="{host}", port="{port}", user="{username}"')
+    logger.info(f'Connecting to ElasticSearch: host="{host}", port="{port}", user="{username}"')
 
     ncpu = config_retrieve(['workflow', 'ncpu'], 4)
     hl.context.init_spark(master=f'local[{ncpu}]', quiet=True)
@@ -270,7 +267,7 @@ def main():
 
     mt = hl.read_matrix_table(args.mt_path)
 
-    logging.info('Getting rows and exporting to the ES')
+    logger.info('Getting rows and exporting to the ES')
 
     # get the rows, flattened, stripped of key and VEP annotations
     row_ht = elasticsearch_row(mt)

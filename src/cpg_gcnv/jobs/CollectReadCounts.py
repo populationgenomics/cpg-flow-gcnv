@@ -44,8 +44,7 @@ def collect_read_counts(
         --read-index {cram_path.index_path} \
         --format TSV \
         --output {job.counts}.tsv
-        """
-                )
+        """)
 
     job.command(f'bgzip {job.counts}.tsv')
     job.command(f'gatk IndexFeatureFile --input {job.counts["tsv.gz"]}')

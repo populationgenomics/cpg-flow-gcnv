@@ -20,7 +20,6 @@ def shard_gcnv(
     job_attrs: dict[str, str],
     output_paths: 'dict[str, Path]',
 ) -> 'list[Job]':
-
     annotated_intervals = get_batch().read_input(annotated_intervals_path)
     filtered_intervals = get_batch().read_input(filtered_intervals_path)
     ploidy_calls_tarball = get_batch().read_input(ploidy_calls_path)

@@ -4,9 +4,10 @@ Hail Query functions for seqr loader; CNV edition.
 
 from argparse import ArgumentParser
 
-import hail as hl
 from cpg_utils.hail_batch import init_batch
 from loguru import logger
+
+import hail as hl
 
 
 def annotate_dataset_gcnv(mt_in: str, mt_out: str):
@@ -74,8 +75,6 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
 
     # github.com/populationgenomics/seqr-loading-pipelines/blob/master/luigi_pipeline/lib/model/gcnv_mt_schema.py
     mt = mt.annotate_rows(
-        # # samples is bad, we do not want it
-        # samples=_genotype_filter_samples(lambda g: True),
         # dubious about this annotation - expected field is qs, I'm using gq, derived from CNQ
         samples_qs=hl.struct(
             **{('%i_to_%i' % (i, i + 10)): _genotype_filter_samples(_filter_samples_gq(i)) for i in range(0, 1000, 10)},

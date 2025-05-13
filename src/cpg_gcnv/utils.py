@@ -74,7 +74,6 @@ def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
     """
     combined_ped_path = prefix / 'ped_with_ref_panel.ped'
     conf_ped_path = config_retrieve(['references', 'broad', 'ped_file'])
-    assert isinstance(conf_ped_path, str)
     with combined_ped_path.open('w') as out:
         with cohort.write_ped_file().open() as f:
             # layer of family ID cleaning
@@ -87,17 +86,19 @@ def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
 
 
 def postprocess_calls(
-        ploidy_calls_path: 'Path',
-        shard_paths: dict[str, 'Path'],
-        sample_index: int,
-        job_attrs: dict[str, str],
-        output_prefix: str,
-        clustered_vcf: str | None = None,
-        intervals_vcf: str | None = None,
-        qc_file: str | None = None,
+    ploidy_calls_path: 'Path',
+    shard_paths: dict[str, 'Path'],
+    sample_index: int,
+    job_attrs: dict[str, str],
+    output_prefix: str,
+    clustered_vcf: str | None = None,
+    intervals_vcf: str | None = None,
+    qc_file: str | None = None,
 ) -> 'BashJob':
-    if any([clustered_vcf, intervals_vcf, qc_file]):
-        assert all([clustered_vcf, intervals_vcf, qc_file]), [clustered_vcf, intervals_vcf, qc_file]
+    if any([clustered_vcf, intervals_vcf, qc_file]) and not all([clustered_vcf, intervals_vcf, qc_file]):
+        raise ValueError(
+            'If any of clustered_vcf, intervals_vcf, or qc_file are provided, all must be provided',
+        )
 
     job_name = 'Postprocess gCNV calls with clustered VCF' if clustered_vcf else 'Postprocess gCNV calls'
 
@@ -125,9 +126,7 @@ def postprocess_calls(
         calls_shard_args += f' --calls-shard-path $BATCH_TMPDIR/inputs/{name}-calls'
 
     allosomal_contigs_args = ' '.join(
-        [
-            f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])
-        ]
+        [f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])]
     )
 
     # declare all output files in advance
@@ -171,7 +170,6 @@ def postprocess_calls(
     job.command(f'tabix -f {job.output["segments.vcf.gz"]}')
 
     if clustered_vcf:
-        assert isinstance(qc_file, str)
         max_events = config_retrieve(['workflow', 'gncv_max_events'])
         max_pass_events = config_retrieve(['workflow', 'gncv_max_pass_events'])
 

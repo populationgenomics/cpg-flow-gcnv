@@ -48,7 +48,7 @@ def joint_segment_vcfs(
     set -e
     gatk --java-options "{job_res.java_mem_options()}" JointGermlineCNVSegmentation \\
         -R {reference.base} \\
-        -O {job.output["vcf.gz"]} \\
+        -O {job.output['vcf.gz']} \\
         {vcf_string} \\
         --model-call-intervals {intervals} \\
         -ped {pedigree}
@@ -110,7 +110,7 @@ def run_joint_segmentation(
                 job_attrs=job_attrs or {} | {'title': f'sub-chunk_{subchunk_index}'},
                 title=f'sub-chunk_{subchunk_index}',
             )
-            chunked_vcfs.append(vcf_group['vcf.gz'])  # type: ignore
+            chunked_vcfs.append(vcf_group['vcf.gz'])
             get_batch().write_output(vcf_group, f'{tmp_prefix}/subchunk_{subchunk_index}')
             jobs.append(job)
 

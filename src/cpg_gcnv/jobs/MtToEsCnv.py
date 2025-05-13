@@ -1,4 +1,3 @@
-
 from functools import cache
 from typing import TYPE_CHECKING
 
@@ -28,10 +27,10 @@ def es_password() -> str:
 
 
 def submit_es_job_for_dataset(
-        mt_path: str,
-        index_name: str,
-        done_flag: str,
-        dataset: str,
+    mt_path: str,
+    index_name: str,
+    done_flag: str,
+    dataset: str,
 ) -> 'BashJob | None':
     """
 

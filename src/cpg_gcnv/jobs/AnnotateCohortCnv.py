@@ -5,10 +5,10 @@ from cpg_gcnv.scripts import annotate_cohort
 
 
 def submit_annotate_cohort_job(
-        input_vcf: str,
-        output_mt: str,
-        checkpoint: str,
-        attributes: dict[str, str],
+    input_vcf: str,
+    output_mt: str,
+    checkpoint: str,
+    attributes: dict[str, str],
 ):
     """
     Submit a job to annotate a cohort with GATK SV

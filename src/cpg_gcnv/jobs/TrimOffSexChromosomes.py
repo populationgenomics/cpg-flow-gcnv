@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 
 
 def trim_sex_chromosomes(
-        sgid_to_output: 'dict[str, Path]',
-        segment_vcfs: 'dict[str, Path]',
-        job_attrs: dict[str, str],
+    sgid_to_output: 'dict[str, Path]',
+    segment_vcfs: 'dict[str, Path]',
+    job_attrs: dict[str, str],
 ) -> 'list[Job]':
     """
 
