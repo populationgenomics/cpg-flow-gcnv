@@ -66,7 +66,7 @@ def clean_ped_family_ids(ped_line: str) -> str:
     return '\t'.join(split_line) + '\n'
 
 
-def make_combined_ped(cohort: 'MultiCohort', prefix: Path) -> Path:
+def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
     """
     Create cohort + ref panel PED.
     Concatenating all samples across all datasets with ref panel
@@ -88,8 +88,8 @@ def make_combined_ped(cohort: 'MultiCohort', prefix: Path) -> Path:
 
 
 def postprocess_calls(
-        ploidy_calls_path: Path,
-        shard_paths: dict[str, Path],
+        ploidy_calls_path: 'Path',
+        shard_paths: dict[str, 'Path'],
         sample_index: int,
         job_attrs: dict[str, str],
         output_prefix: str,
@@ -203,7 +203,7 @@ def postprocess_calls(
     return job
 
 
-def counts_input_args(counts_paths: list[Path]) -> str:
+def counts_input_args(counts_paths: list['Path']) -> str:
     args = ''
     for f in counts_paths:
         counts = get_batch().read_input_group(
