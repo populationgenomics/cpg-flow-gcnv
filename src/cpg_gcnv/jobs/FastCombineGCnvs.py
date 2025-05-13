@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils.config import image_path, config_retrieve
+from cpg_utils.config import config_retrieve, image_path
 from cpg_utils.hail_batch import get_batch
 
 from cpg_gcnv.scripts import update_vcf_attributes

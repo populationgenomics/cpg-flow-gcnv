@@ -1,16 +1,15 @@
 import re
 from typing import TYPE_CHECKING
 
+from cpg_flow.resources import HIGHMEM
 from cpg_utils import to_path
 from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import fasta_res_group, get_batch, authenticate_cloud_credentials_in_job
-from cpg_flow.resources import HIGHMEM
-
+from cpg_utils.hail_batch import authenticate_cloud_credentials_in_job, fasta_res_group, get_batch
 
 if TYPE_CHECKING:
+    from cpg_flow.targets import MultiCohort
     from cpg_utils import Path
     from hailtop.batch.job import BashJob
-    from cpg_flow.targets import MultiCohort
 
 
 PED_FAMILY_ID_REGEX = re.compile(r'(^[A-Za-z0-9_]+$)')
@@ -168,8 +167,8 @@ def postprocess_calls(
     )
 
     # index the output VCFs
-    job.command(f'tabix -f {job.output["intervals.vcf.gz"]}')  # type: ignore
-    job.command(f'tabix -f {job.output["segments.vcf.gz"]}')  # type: ignore
+    job.command(f'tabix -f {job.output["intervals.vcf.gz"]}')
+    job.command(f'tabix -f {job.output["segments.vcf.gz"]}')
 
     if clustered_vcf:
         assert isinstance(qc_file, str)

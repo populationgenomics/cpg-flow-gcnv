@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from cpg_utils.config import config_retrieve, image_path
 from cpg_utils.hail_batch import get_batch
 
-
 if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
 

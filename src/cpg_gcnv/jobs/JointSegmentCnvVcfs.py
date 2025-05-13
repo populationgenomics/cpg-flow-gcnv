@@ -1,17 +1,15 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import get_batch, fasta_res_group
-
 from cpg_flow.resources import HIGHMEM
+from cpg_utils.config import config_retrieve, image_path
+from cpg_utils.hail_batch import fasta_res_group, get_batch
 
 from cpg_gcnv.utils import chunks
 
-
 if TYPE_CHECKING:
     from cpg_utils import Path
+    from hailtop.batch import Resource, ResourceFile, ResourceGroup
     from hailtop.batch.job import BashJob
-    from hailtop.batch import ResourceFile, ResourceGroup, Resource
 
 
 def joint_segment_vcfs(

@@ -5,39 +5,37 @@ Stages that implement GATK-gCNV.
 from functools import cache
 from typing import TYPE_CHECKING
 
-from loguru import logger
-
+from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, SequencingGroupStage, stage
+from cpg_flow.workflow import get_multicohort, get_workflow
 from cpg_utils import to_path
 from cpg_utils.config import AR_GUID_NAME, config_retrieve, try_get_ar_guid
 from cpg_utils.hail_batch import get_batch
+from loguru import logger
 
-from cpg_flow.stage import CohortStage, DatasetStage, MultiCohortStage, SequencingGroupStage, stage
-from cpg_flow.workflow import get_workflow, get_multicohort
-
-from cpg_gcnv.utils import shard_items
-from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
+from cpg_gcnv.jobs.AnnotateCnvsWithStrvctvre import annotate_cnvs_with_strvctvre
+from cpg_gcnv.jobs.AnnotateCnvsWithSvAnnotate import queue_annotate_sv_jobs
+from cpg_gcnv.jobs.AnnotateCohortCnv import submit_annotate_cohort_job
+from cpg_gcnv.jobs.AnnotateDatasetCnv import submit_annotate_dataset_job
 from cpg_gcnv.jobs.CallGermlineCnvsWithGatk import shard_gcnv
 from cpg_gcnv.jobs.CollectReadCounts import collect_read_counts
 from cpg_gcnv.jobs.DeterminePloidy import filter_and_determine_ploidy
-from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
-from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_calls
-from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
-from cpg_gcnv.jobs.JointSegmentCnvVcfs import run_joint_segmentation
-from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_calls
 from cpg_gcnv.jobs.FastCombineGCnvs import fast_merge_calls
-from cpg_gcnv.jobs.AnnotateCnvsWithSvAnnotate import queue_annotate_sv_jobs
-from cpg_gcnv.jobs.AnnotateCnvsWithStrvctvre import annotate_cnvs_with_strvctvre
-from cpg_gcnv.jobs.AnnotateCohortCnv import submit_annotate_cohort_job
-from cpg_gcnv.jobs.AnnotateDatasetCnv import submit_annotate_dataset_job
+from cpg_gcnv.jobs.JointSegmentCnvVcfs import run_joint_segmentation
 from cpg_gcnv.jobs.MtToEsCnv import submit_es_job_for_dataset
+from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
+from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_calls
+from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_calls
+from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
+from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
+from cpg_gcnv.utils import shard_items
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
+    from cpg_flow.stage import StageInput, StageOutput
     from cpg_flow.targets.cohort import Cohort
     from cpg_flow.targets.dataset import Dataset
     from cpg_flow.targets.multicohort import MultiCohort
     from cpg_flow.targets.sequencing_group import SequencingGroup
-    from cpg_flow.stage import StageInput, StageOutput
+    from cpg_utils import Path
 
 
 @cache
@@ -175,7 +173,7 @@ class UpgradePedWithInferred(CohortStage):
             aneuploidies=outputs['aneuploidy_samples'],
             ploidy_tar=ploidy_inputs,
         )
-        return self.make_outputs(cohort, data=outputs, jobs=job)  # type: ignore
+        return self.make_outputs(cohort, data=outputs, jobs=job)
 
 
 @stage(required_stages=[PrepareIntervals, CollectReadCounts, DeterminePloidy])
@@ -222,7 +220,7 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
         """
 
         # identify the cohort that contains this SGID
-        this_cohort: 'Cohort' = get_cohort_for_sgid(seqgroup.id)
+        this_cohort: Cohort = get_cohort_for_sgid(seqgroup.id)
 
         # this job runs per sample, on results with a cohort context
         # so we need to write the outputs to a cohort-specific location
@@ -268,7 +266,7 @@ class TrimOffSexChromosomes(CohortStage):
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
         # returning an empty dictionary might cause the pipeline setup to break?
-        return_dict: 'dict[str, Path | str]' = {
+        return_dict: dict[str, Path | str] = {
             'placeholder': str(cohort_prefix / 'placeholder.txt'),
         }
 
@@ -391,7 +389,7 @@ class JointSegmentCnvVcfs(CohortStage):
             pedigree=str(pedigree),
             intervals=str(intervals),
             tmp_prefix=str(self.get_stage_cohort_prefix(cohort, category='tmp') / 'intermediate_jointseg'),
-            output_path=outputs['clustered_vcf'],  # type: ignore
+            output_path=outputs['clustered_vcf'],
             job_attrs=self.get_job_attrs(cohort),
         )
         return self.make_outputs(cohort, data=outputs, jobs=jobs)

@@ -1,14 +1,12 @@
-from typing import TYPE_CHECKING
 from random import randint
+from typing import TYPE_CHECKING
 
 from cpg_utils import Path
 from cpg_utils.config import config_retrieve
-from cpg_utils.hail_batch import get_batch, authenticate_cloud_credentials_in_job
 from cpg_utils.cromwell import CromwellOutputType, run_cromwell_workflow_from_repo_and_get_outputs
-
+from cpg_utils.hail_batch import authenticate_cloud_credentials_in_job, get_batch
 
 from cpg_gcnv.utils import make_combined_ped
-
 
 if TYPE_CHECKING:
     from cpg_flow.targets import MultiCohort

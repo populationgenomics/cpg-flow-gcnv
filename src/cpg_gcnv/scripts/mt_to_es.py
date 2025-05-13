@@ -14,9 +14,7 @@ from io import StringIO
 from sys import exit
 
 import elasticsearch
-
 import hail as hl
-
 from cpg_utils import to_path
 from cpg_utils.cloud import read_secret
 from cpg_utils.config import config_retrieve
@@ -99,8 +97,7 @@ def encode_field_name(s):
     # escape 1st char if necessary
     if any(field_name.startswith(c) for c in ES_FIELD_NAME_BAD_LEADING_CHARS):
         return ES_FIELD_NAME_ESCAPE_CHAR + field_name
-    else:
-        return field_name
+    return field_name
 
 
 def struct_to_dict(struct):
@@ -141,7 +138,7 @@ class ElasticsearchClient:
         for i in range(num_attempts):
             shards = self.es.cat.shards(index=index_name)
             if LOADING_NODES_NAME not in shards:
-                logging.warning("Shards are on {}".format(shards))
+                logging.warning(f"Shards are on {shards}")
                 return
             logging.warning(f'Waiting for shards to transfer off the es-data-loading nodes: \n{shards}')
             time.sleep(5)

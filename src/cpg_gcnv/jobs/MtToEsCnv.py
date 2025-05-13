@@ -1,13 +1,12 @@
 
-from typing import TYPE_CHECKING
 from functools import cache
+from typing import TYPE_CHECKING
 
+from cpg_utils.cloud import read_secret
+from cpg_utils.config import config_retrieve
+from cpg_utils.hail_batch import get_batch
 from google.api_core.exceptions import PermissionDenied
 from loguru import logger
-
-from cpg_utils.config import config_retrieve
-from cpg_utils.cloud import read_secret
-from cpg_utils.hail_batch import get_batch
 
 from cpg_gcnv.scripts import mt_to_es
 

@@ -1,9 +1,8 @@
 from typing import TYPE_CHECKING
 
+from cpg_flow.resources import HIGHMEM
 from cpg_utils.config import image_path
 from cpg_utils.hail_batch import get_batch
-from cpg_flow.resources import HIGHMEM
-
 
 if TYPE_CHECKING:
     from cpg_utils import Path

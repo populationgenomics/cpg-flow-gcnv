@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING
 
+from cpg_flow.resources import HIGHMEM
 from cpg_utils.config import image_path
 from cpg_utils.hail_batch import fasta_res_group, get_batch
-from cpg_flow.resources import HIGHMEM
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
     from cpg_flow.filetypes import CramPath
+    from cpg_utils import Path
     from hailtop.batch.job import Job
 
 

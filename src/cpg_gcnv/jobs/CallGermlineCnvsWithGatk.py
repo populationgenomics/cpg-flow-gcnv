@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
+
+from cpg_flow.resources import HIGHMEM
+from cpg_flow.utils import can_reuse
 from cpg_utils.config import image_path
 from cpg_utils.hail_batch import get_batch
-from cpg_flow.utils import can_reuse
-from cpg_flow.resources import HIGHMEM
 
 from cpg_gcnv.utils import counts_input_args, shard_items
 

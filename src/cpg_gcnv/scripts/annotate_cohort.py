@@ -7,11 +7,9 @@ import gzip
 from argparse import ArgumentParser
 from os.path import join
 
-from loguru import logger
 import hail as hl
-
 from cpg_utils.hail_batch import genome_build, init_batch
-
+from loguru import logger
 
 # I'm just going to go ahead and steal these constants from their seqr loader
 GENE_SYMBOL = 'gene_symbol'
@@ -193,7 +191,7 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
     # overwrite symbols with ENSG IDs in these columns
     # not sure why this is required, I think SV annotation came out
     # with ENSGs from the jump, but this is all symbols
-    logger.info(f'Processing gene ID mapping chunk')
+    logger.info('Processing gene ID mapping chunk')
     for col_name in conseq_predicted_gene_cols:
         mt = mt.annotate_rows(
             info=mt.info.annotate(

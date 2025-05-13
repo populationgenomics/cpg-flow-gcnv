@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 
 from cpg_gcnv.utils import postprocess_calls
 
-
 if TYPE_CHECKING:
     from cpg_utils import Path
     from hailtop.batch.job import Job
