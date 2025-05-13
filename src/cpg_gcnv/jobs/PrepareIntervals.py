@@ -17,7 +17,9 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
 
     reference = fasta_res_group(get_batch())
 
-    exclude_intervals_args = ' '.join([f'--exclude-intervals {i}' for i in config_retrieve(['workflow', 'exclude_intervals'], [])])
+    exclude_intervals_args = ' '.join(
+        [f'--exclude-intervals {i}' for i in config_retrieve(['workflow', 'exclude_intervals'], [])]
+    )
 
     intervals = get_batch().read_input(config_retrieve(['workflow', 'intervals_path']))
     job.command(f"""

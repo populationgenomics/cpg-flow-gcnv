@@ -282,11 +282,11 @@ class TrimOffSexChromosomes(CohortStage):
     isn't relevant to determining aneuploidy. As a result we're happy writing this to a 'Cohort'-specific path
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path' | str]:
+    def expected_outputs(self, cohort: 'Cohort') -> dict[str, 'Path | str']:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
         # returning an empty dictionary might cause the pipeline setup to break?
-        return_dict: dict[str, 'Path' | str] = {
+        return_dict: dict[str, 'Path | str'] = {
             'placeholder': str(cohort_prefix / 'placeholder.txt'),
         }
 

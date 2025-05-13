@@ -68,7 +68,7 @@ def queue_annotate_sv_jobs(
     for key, value in input_dict.items():
         if isinstance(value, Path):
             paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = str(value)
-        elif isinstance(value, (list, set)):
+        elif isinstance(value, list |set):
             paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = [str(v) for v in value]
         else:
             paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = value

@@ -3,6 +3,7 @@ Hail Query functions for seqr loader; CNV edition.
 """
 
 import datetime
+import gzip
 from argparse import ArgumentParser
 from os.path import join
 
@@ -10,7 +11,7 @@ from loguru import logger
 import hail as hl
 
 from cpg_utils.hail_batch import genome_build, init_batch
-from cpg_workflows.query_modules.seqr_loader_sv import get_expr_for_xpos, parse_gtf_from_local
+
 
 # I'm just going to go ahead and steal these constants from their seqr loader
 GENE_SYMBOL = 'gene_symbol'
@@ -24,6 +25,81 @@ NON_GENE_PREDICTIONS = {
     'PREDICTED_NONCODING_BREAKPOINT',
     'PREDICTED_NONCODING_SPAN',
 }
+
+GENCODE_FILE_HEADER = [
+    'chrom',
+    'source',
+    'feature_type',
+    'start',
+    'end',
+    'score',
+    'strand',
+    'phase',
+    'info',
+]
+
+
+# yoinking some methods out of hail_scripts.computed_fields
+# removes dependency on submodule completely
+def get_expr_for_contig_number(locus: hl.LocusExpression) -> hl.Int32Expression:
+    """Convert contig name to contig number"""
+    return hl.bind(
+        lambda contig: (
+            hl.case().when(contig == 'X', 23).when(contig == 'Y', 24).when(contig[0] == 'M', 25).default(hl.int(contig))
+        ),
+        locus.contig.replace('^chr', ''),
+    )
+
+
+def get_expr_for_xpos(
+    locus: hl.LocusExpression | hl.StructExpression,
+) -> hl.Int64Expression:
+    """Genomic position represented as a single number = contig_number * 10**9 + position.
+    This represents chrom:pos more compactly and allows for easier sorting.
+    """
+    contig_number = get_expr_for_contig_number(locus)
+    return hl.int64(contig_number) * 1_000_000_000 + locus.position
+
+
+def parse_gtf_from_local(gtf_path: str) -> hl.dict:
+    """
+    Read over the localised GTF file and read into a dict
+
+    n.b. due to a limit in Spark of 20MB per String length, the dictionary here is actually too large to be used
+    in annotation expressions. To remedy this, the dictionary is returned as a list of fragments, and we can use each
+    one in turn, then create a checkpoint between them.
+    Args:
+        gtf_path ():
+        chunk_size (int): if specified, returns this dict as a list of dicts
+    Returns:
+        the gene lookup dictionary as a Hail DictExpression
+    """
+    gene_id_mapping = {}
+    logger.info(f'Loading {gtf_path}')
+    with gzip.open(gtf_path, 'rt') as gencode_file:
+        # iterate over this file and do all the things
+        for i, line in enumerate(gencode_file):
+            line = line.rstrip('\r\n')
+            if not line or line.startswith('#'):
+                continue
+            fields = line.split('\t')
+            if len(fields) != len(GENCODE_FILE_HEADER):
+                raise ValueError(f'Unexpected number of fields on line #{i}: {fields}')
+            record = dict(zip(GENCODE_FILE_HEADER, fields, strict=True))
+            if record['feature_type'] != 'gene':
+                continue
+            # parse info field
+            info_fields_list = [x.strip().split() for x in record['info'].split(';') if x != '']
+            info_fields = {k: v.strip('"') for k, v in info_fields_list}
+
+            # skip an ENSG: ENSG mapping, redundant...
+            if info_fields['gene_name'].startswith('ENSG'):
+                continue
+            gene_id_mapping[info_fields['gene_name']] = info_fields['gene_id'].split('.')[0]
+
+    logger.info(f'Completed ingestion of gene-ID mapping, {len(gene_id_mapping)} entries')
+
+    return [hl.literal(gene_id_mapping)]
 
 
 def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
@@ -112,22 +188,18 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
     # for i, chunks in enumerate(chunks(gene_id_mapping, 100)):
 
     # get the Gene-Symbol mapping dict
-    # TODO resolve this back into a single read
-    gene_id_mappings = parse_gtf_from_local(gencode, chunk_size=15000)
+    gene_id_mapping = parse_gtf_from_local(gencode)
 
     # overwrite symbols with ENSG IDs in these columns
     # not sure why this is required, I think SV annotation came out
     # with ENSGs from the jump, but this is all symbols
-    for i, gene_id_mapping in enumerate(gene_id_mappings):
-        logger.info(f'Processing gene ID mapping chunk {i}')
-        for col_name in conseq_predicted_gene_cols:
-            mt = mt.annotate_rows(
-                info=mt.info.annotate(
-                    **{col_name: hl.map(lambda gene: gene_id_mapping.get(gene, gene), mt.info[col_name])},
-                ),
-            )
-
-        mt = mt.checkpoint(join(checkpoint, f'fragment_{i}.mt'))
+    logger.info(f'Processing gene ID mapping chunk')
+    for col_name in conseq_predicted_gene_cols:
+        mt = mt.annotate_rows(
+            info=mt.info.annotate(
+                **{col_name: hl.map(lambda gene: gene_id_mapping.get(gene, gene), mt.info[col_name])},
+            ),
+        )
 
     mt = mt.annotate_rows(
         # this expected mt.variant_name to be present, and it's not

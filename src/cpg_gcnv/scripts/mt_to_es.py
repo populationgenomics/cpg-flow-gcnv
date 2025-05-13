@@ -62,7 +62,7 @@ def _elasticsearch_mapping_for_type(dtype):
     """
     if isinstance(dtype, hl.tstruct):
         return {"properties": {field: _elasticsearch_mapping_for_type(dtype[field]) for field in dtype.fields}}
-    if isinstance(dtype, (hl.tarray, hl.tset)):
+    if isinstance(dtype, hl.tarray | hl.tset):
         element_mapping = _elasticsearch_mapping_for_type(dtype.element_type)
         if isinstance(dtype.element_type, hl.tstruct):
             element_mapping["type"] = "nested"
