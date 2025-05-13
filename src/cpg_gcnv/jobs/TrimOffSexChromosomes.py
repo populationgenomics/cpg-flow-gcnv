@@ -38,7 +38,7 @@ def trim_sex_chromosomes(
         job.command('set -euo pipefail')
 
         # TODO when we adopt bcftools 1.20+ as standard we can drop the separate tabix step
-        job.command(f'bcftools view -W=tbi -Oz -o {job.output["vcf.bgz"]} {localised_vcf} {autosomes}')  # type: ignore
+        job.command(f'bcftools view -W=tbi -Oz -o {job.output["vcf.bgz"]} {localised_vcf} {autosomes}')
         get_batch().write_output(job.output, no_xy_vcf.removesuffix('.vcf.bgz'))
         jobs.append(job)
 

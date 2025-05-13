@@ -77,18 +77,18 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
     mt = mt.annotate_rows(
         # dubious about this annotation - expected field is qs, I'm using gq, derived from CNQ
         samples_qs=hl.struct(
-            **{('%i_to_%i' % (i, i + 10)): _genotype_filter_samples(_filter_samples_gq(i)) for i in range(0, 1000, 10)},
+            **{f'{i}_to_{i + 10}': _genotype_filter_samples(_filter_samples_gq(i)) for i in range(0, 1000, 10)},
             gt_1000=_genotype_filter_samples(lambda g: g.gq >= 1000),
         ),
         # ok, here's what we're
         samples_cn=hl.struct(
             **{str(i): _genotype_filter_samples(_filter_sample_cn(i)) for i in [0, 1, 3]},
-            gte_4=_genotype_filter_samples(lambda g: g.cn >= 4),
+            gte_4=_genotype_filter_samples(lambda g: g.cn >= 4),  # noqa: PLR2004
             # and a special case for male sex-chrom CN
             **{'2': _genotype_filter_samples_cn2()},
         ),
         # re-embedding the samples_num_alt, derived from hl.call().n_alt_alleles()
-        samples_num_alt=hl.struct(**{'%i' % i: _genotype_filter_samples(_filter_num_alt(i)) for i in range(1, 3, 1)}),
+        samples_num_alt=hl.struct(**{str(i): _genotype_filter_samples(_filter_num_alt(i)) for i in range(1, 3, 1)}),
     )
 
     # removing GT again, out of an abundance of caution

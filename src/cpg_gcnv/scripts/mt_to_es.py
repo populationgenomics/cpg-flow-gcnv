@@ -8,6 +8,7 @@ https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7
 
 import math
 import time
+import sys
 from argparse import ArgumentParser
 from io import StringIO
 
@@ -84,7 +85,7 @@ def encode_field_name(s):
     https://discuss.elastic.co/t/illegal-characters-in-elasticsearch-field-names/17196/2
     """
     field_name = StringIO()
-    for i, c in enumerate(s):
+    for _i, c in enumerate(s):
         if c == ES_FIELD_NAME_ESCAPE_CHAR:
             field_name.write(2 * ES_FIELD_NAME_ESCAPE_CHAR)
         elif c in ES_FIELD_NAME_SPECIAL_CHAR_MAP:
@@ -135,7 +136,7 @@ class ElasticsearchClient:
         Wait for shards to move off of the loading nodes before connecting to seqr
         https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/hail_scripts/elasticsearch/elasticsearch_client_v7.py#L134
         """
-        for i in range(num_attempts):
+        for _i in range(num_attempts):
             shards = self.es.cat.shards(index=index_name)
             if LOADING_NODES_NAME not in shards:
                 logger.warning(f'Shards are on {shards}')
@@ -254,7 +255,7 @@ def main():
     # no password, but we fail gracefully
     if password is None:
         logger.warning(f'No permission to access ES password, skipping creation of {args.index}')
-        exit(0)
+        sys.exit(0)
 
     host = config_retrieve(['elasticsearch', 'host'])
     port = config_retrieve(['elasticsearch', 'port'])
@@ -288,7 +289,7 @@ def main():
     es_client.export_table_to_elasticsearch(row_ht, index_name=args.index, num_shards=es_shards)
 
     # https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/luigi_pipeline/lib/hail_tasks.py#L266
-    if es_shards < 25:
+    if es_shards < 25:  # noqa: PLR2004
         es_client.wait_for_shard_transfer(args.index)
 
     with to_path(args.flag).open('w') as f:

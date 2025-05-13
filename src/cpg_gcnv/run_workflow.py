@@ -21,7 +21,8 @@ def cli_main():
     """
     CLI entrypoint - starts up the workflow
     """
-    assert config_retrieve(['workflow', 'sequencing_type']) == 'exome', 'For exomes, use GATK-SV instead'
+    if config_retrieve(['workflow', 'sequencing_type']) != 'exome':
+        raise ValueError('For exomes, use GATK-SV instead')
 
     parser = ArgumentParser()
     parser.add_argument('--dry_run', action='store_true', help='Dry run')

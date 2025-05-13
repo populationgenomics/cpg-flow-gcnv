@@ -78,10 +78,10 @@ def parse_gtf_from_local(gtf_path: str) -> hl.dict:
     with gzip.open(gtf_path, 'rt') as gencode_file:
         # iterate over this file and do all the things
         for i, line in enumerate(gencode_file):
-            line = line.rstrip('\r\n')
-            if not line or line.startswith('#'):
+            strip_line = line.rstrip('\r\n')
+            if not strip_line or strip_line.startswith('#'):
                 continue
-            fields = line.split('\t')
+            fields = strip_line.split('\t')
             if len(fields) != len(GENCODE_FILE_HEADER):
                 raise ValueError(f'Unexpected number of fields on line #{i}: {fields}')
             record = dict(zip(GENCODE_FILE_HEADER, fields, strict=True))
@@ -202,7 +202,7 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
 
     mt = mt.annotate_rows(
         # this expected mt.variant_name to be present, and it's not
-        variantId=hl.format(f'%s_%s_{datetime.date.today():%m%d%Y}', mt.rsid, mt.svType),
+        variantId=hl.format(f'%s_%s_{datetime.date.today():%m%d%Y}', mt.rsid, mt.svType),  # noqa: DTZ011
         geneIds=hl.set(
             hl.filter(
                 hl.is_defined,

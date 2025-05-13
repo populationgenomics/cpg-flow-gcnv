@@ -66,7 +66,7 @@ def fast_merge_calls(sg_vcfs: list[str], job_attrs: dict[str, str], output_path:
     third_job.storage('10Gi')
     third_job.declare_resource_group(output={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
 
-    third_job.command(f'bcftools view -W=tbi -Oz -o {third_job.output["vcf.bgz"]} {update_job.output}')  # type: ignore
+    third_job.command(f'bcftools view -W=tbi -Oz -o {third_job.output["vcf.bgz"]} {update_job.output}')
 
     # get the output root to write to
     get_batch().write_output(third_job.output, str(output_path).removesuffix('.vcf.bgz'))
