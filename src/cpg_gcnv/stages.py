@@ -2,7 +2,6 @@
 Stages that implement GATK-gCNV.
 """
 
-import json
 from functools import cache
 from typing import TYPE_CHECKING
 
