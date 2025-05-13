@@ -69,23 +69,6 @@ def fixed_sg_order(cohort: 'Cohort') -> list[str]:
 
 
 @stage
-class SetSgIdOrder(CohortStage):
-    """
-    Set the order of the sequencing groups in the cohort
-    Push this to a file _now_, and use it later
-    """
-
-    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path | str]':
-        return {'sgid_order': self.get_stage_cohort_prefix(cohort) / 'sgid_order.json'}
-
-    def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput':
-        sorted_sgids = sorted(cohort.get_sequencing_group_ids())
-        with self.expected_outputs(cohort)['sgid_order'].open('w') as f_handler:
-            json.dump(sorted_sgids, f_handler, indent=2)
-        return self.make_outputs(cohort, data=self.expected_outputs(cohort))
-
-
-@stage
 class PrepareIntervals(MultiCohortStage):
     """
     Interval preparation steps that don't require the sample read counts:
