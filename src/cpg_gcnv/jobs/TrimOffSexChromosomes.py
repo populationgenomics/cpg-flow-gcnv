@@ -27,6 +27,9 @@ def trim_sex_chromosomes(
 
     # iterate over each of the SG/files we need to process
     for sgid, no_xy_vcf in sgid_to_output.items():
+        if sgid == 'placeholder':
+            continue
+
         sg_vcf = segment_vcfs[sgid]
 
         # create a new job for each SG
