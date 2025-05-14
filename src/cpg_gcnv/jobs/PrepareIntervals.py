@@ -22,8 +22,6 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
     )
 
     intervals = get_batch().read_input(config_retrieve(['workflow', 'intervals_path']))
-
-    # use a temp file, GATK is very snippy about file names and extensions
     job.command(f"""
     gatk PreprocessIntervals \
         --reference {reference.base} \
@@ -32,18 +30,19 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
         --padding 250 \
         --bin-length 0 \
         --interval-merging-rule OVERLAPPING_ONLY \
-        --output preprocessed.interval_list
+        --output {job.preprocessed}
     """)
+
+    # give the file an accurate extension
+    job.preprocessed.add_extension('.interval_list')
 
     job.command(f"""
     gatk AnnotateIntervals \
         --reference {reference.base} \
-        --intervals preprocessed.interval_list \
+        --intervals {job.preprocessed} \
         --interval-merging-rule OVERLAPPING_ONLY \
         --output {job.annotated}
     """)
-
-    job.command(f'mv preprocessed.interval_list {job.preprocessed}')
 
     for key, path in output_paths.items():
         get_batch().write_output(job[key], str(path))
