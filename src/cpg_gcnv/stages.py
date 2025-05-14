@@ -119,7 +119,7 @@ class DeterminePloidy(CohortStage):
     FilterIntervals and DetermineGermlineContigPloidy. These outputs represent
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path | str]':
+    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path]':
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'filtered': cohort_prefix / 'filtered.interval_list',
@@ -153,9 +153,15 @@ class DeterminePloidy(CohortStage):
 class UpgradePedWithInferred(CohortStage):
     """
     Don't trust the metamist pedigrees, update with inferred sexes
+
+    There's some hijinx to be done here - on the first pass this will never detect aneuploidies, because the files
+    don't exist yet.
+
+    We can iteratively run this pipeline - if aneuploid samples are detected in the later stages, they will be
+    automatically detected by this step, or can be manually added from config
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path | str]':
+    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path]':
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'aneuploidy_samples': cohort_prefix / 'aneuploidies.txt',
@@ -183,13 +189,14 @@ class CallGermlineCnvsWithGatk(CohortStage):
     stage can pick out this stage's sharded inputs easily.
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path | str]':
+    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path]':
         return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
     def queue_jobs(self, cohort: 'Cohort', inputs: 'StageInput') -> 'StageOutput | None':
         outputs = self.expected_outputs(cohort)
         determine_ploidy = inputs.as_dict(cohort, DeterminePloidy)
         prep_intervals = inputs.as_dict(get_multicohort(), PrepareIntervals)
+
         # pull all per-sgid files from previous stage
         random_read_counts = inputs.as_path_by_target(CollectReadCounts, 'counts')
 
@@ -213,7 +220,7 @@ class ProcessCohortCnvCallsToSgVcf(SequencingGroupStage):
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path | str]':
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path]':
         """
         output paths here are per-SGID, but stored in the directory structure indicating the whole MCohort
         """
@@ -265,6 +272,7 @@ class TrimOffSexChromosomes(CohortStage):
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
         # returning an empty dictionary might cause the pipeline setup to break?
+        # returning a string won't cause an existince check on this file, but will trick the pipeline into running?
         return_dict: dict[str, Path | str] = {
             'placeholder': str(cohort_prefix / 'placeholder.txt'),
         }
@@ -334,7 +342,7 @@ class JointSegmentCnvVcfs(CohortStage):
     takes the individual VCFs and runs the joint segmentation step
     """
 
-    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path | str]':
+    def expected_outputs(self, cohort: 'Cohort') -> 'dict[str, Path]':
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
         return {
             'clustered_vcf': cohort_prefix / 'JointClusteredSegments.vcf.gz',
@@ -380,9 +388,9 @@ class JointSegmentCnvVcfs(CohortStage):
 
         jobs = run_joint_segmentation(
             segment_vcfs=all_vcfs,
-            pedigree=str(pedigree),
-            intervals=str(intervals),
-            tmp_prefix=str(self.get_stage_cohort_prefix(cohort, category='tmp') / 'intermediate_jointseg'),
+            pedigree=pedigree,
+            intervals=intervals,
+            tmp_prefix=self.get_stage_cohort_prefix(cohort, category='tmp') / 'intermediate_jointseg',
             output_path=outputs['clustered_vcf'],
             job_attrs=self.get_job_attrs(cohort),
         )

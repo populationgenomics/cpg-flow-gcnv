@@ -46,8 +46,10 @@ def filter_and_determine_ploidy(
 
     counts_input_args = counts_input_getter(counts_paths)
 
-    preprocessed_intervals = get_batch().read_input(str(preprocessed_intervals_path))
-    annotated_intervals = get_batch().read_input(str(annotated_intervals_path))
+    preprocessed_intervals = get_batch().read_input(preprocessed_intervals_path)
+    annotated_intervals = get_batch().read_input(annotated_intervals_path)
+
+    job.filtered.add_extension('.interval_list')
 
     job.command(f"""
     gatk --java-options "{job_res.java_mem_options()}" FilterIntervals \
@@ -56,8 +58,6 @@ def filter_and_determine_ploidy(
       {counts_input_args} \
       --output {job.filtered}
     """)
-
-    job.filtered.add_extension('.interval_list')
 
     # (Other arguments may be cloud URLs, but this *must* be a local file)
     ploidy_priors = get_batch().read_input(ploidy_priors_path)
@@ -78,5 +78,5 @@ def filter_and_determine_ploidy(
     """)
 
     for key, path in output_paths.items():
-        get_batch().write_output(job[key], str(path))
+        get_batch().write_output(job[key], path)
     return job

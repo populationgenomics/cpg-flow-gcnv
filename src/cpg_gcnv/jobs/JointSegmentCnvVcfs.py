@@ -59,9 +59,9 @@ def joint_segment_vcfs(
 
 def run_joint_segmentation(
     segment_vcfs: list[str],
-    pedigree: str,
-    intervals: str,
-    tmp_prefix: str,
+    pedigree: 'Path',
+    intervals: 'Path',
+    tmp_prefix: 'Path',
     output_path: 'Path',
     job_attrs: dict[str, str] | None = None,
 ) -> 'list[BashJob]':
@@ -111,7 +111,7 @@ def run_joint_segmentation(
                 title=f'sub-chunk_{subchunk_index}',
             )
             chunked_vcfs.append(vcf_group['vcf.gz'])
-            get_batch().write_output(vcf_group, f'{tmp_prefix}/subchunk_{subchunk_index}')
+            get_batch().write_output(vcf_group, tmp_prefix / f'subchunk_{subchunk_index}')
             jobs.append(job)
 
     # else, all vcf files into the batch
