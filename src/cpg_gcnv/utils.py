@@ -126,7 +126,7 @@ def postprocess_calls(
         calls_shard_args += f' --calls-shard-path $BATCH_TMPDIR/inputs/{name}-calls'
 
     allosomal_contigs_args = ' '.join(
-        [f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])]
+        [f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])],
     )
 
     # declare all output files in advance

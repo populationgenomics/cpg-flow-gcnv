@@ -322,7 +322,7 @@ class TrimOffSexChromosomes(CohortStage):
 
         cohort_segment_vcfs = {sgid: germline_calls[sgid]['segments'] for sgid in cohort.get_sequencing_group_ids()}
         jobs = trim_sex_chromosomes(
-            sgid_to_output=expected, segment_vcfs=cohort_segment_vcfs, job_attrs=self.get_job_attrs(cohort)
+            sgid_to_output=expected, segment_vcfs=cohort_segment_vcfs, job_attrs=self.get_job_attrs(cohort),
         )
         return self.make_outputs(cohort, data=expected, jobs=jobs)
 
@@ -686,7 +686,7 @@ class MtToEsCnv(DatasetStage):
         outputs = self.expected_outputs(dataset)
 
         job = submit_es_job_for_dataset(
-            mt_path=mt_path, index_name=outputs['index_name'], done_flag=outputs['done_flag'], dataset=dataset.name
+            mt_path=mt_path, index_name=outputs['index_name'], done_flag=outputs['done_flag'], dataset=dataset.name,
         )
 
         return self.make_outputs(dataset, data=outputs, jobs=job)
