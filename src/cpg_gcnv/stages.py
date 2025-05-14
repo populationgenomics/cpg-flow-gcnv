@@ -600,7 +600,7 @@ class AnnotateCohortCnv(MultiCohortStage):
         Fire up the job to ingest the cohort VCF as a MT, and rearrange the annotations
         """
 
-        vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCnvsWithStrvctvre, key='strvctvre_vcf')
+        vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCnvsWithStrvctvre)
 
         output = self.expected_outputs(multicohort)
 
@@ -635,7 +635,7 @@ class AnnotateDatasetCnv(DatasetStage):
             inputs ():
         """
 
-        mt_in = inputs.as_str(target=get_multicohort(), stage=AnnotateCohortCnv, key='mt')
+        mt_in = inputs.as_str(target=get_multicohort(), stage=AnnotateCohortCnv)
 
         output = self.expected_outputs(dataset)
 
