@@ -7,7 +7,7 @@ from cpg_utils.hail_batch import fasta_res_group, get_batch
 if TYPE_CHECKING:
     from cpg_flow.filetypes import CramPath
     from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
 
 
 def collect_read_counts(
@@ -15,12 +15,25 @@ def collect_read_counts(
     cram_path: 'CramPath',
     job_attrs: dict[str, str],
     output_base_path: str,
-) -> 'Job':
-    job = get_batch().new_job('Collect gCNV read counts', job_attrs | {'tool': 'gatk CollectReadCounts'})
+) -> 'BashJob':
+    """
+    Collect read counts from a CRAM file using GATK's CollectReadCounts tool, and the previously generated intervals
+
+    Args:
+        intervals_path (Path): path to the intervals file, generated in the previous step
+        cram_path (CramPath): a SG's CRAM, Index, and Reference
+        job_attrs (dict): collection of attributes to attach to the job
+        output_base_path (str): root (minus file extensions) to write the output files to
+
+    Returns:
+        job (BashJob): The job object for the CollectReadCounts step
+    """
+    job = get_batch().new_bash_job('Collect gCNV read counts', job_attrs | {'tool': 'gatk CollectReadCounts'})
     job.image(image_path('gatk_gcnv'))
 
     reference = fasta_res_group(get_batch())
 
+    # the specific GATK module here needs the full suffix ".counts.tsv.gz" to recognize the file format
     job.declare_resource_group(
         counts={
             'counts.tsv.gz': '{root}.counts.tsv.gz',

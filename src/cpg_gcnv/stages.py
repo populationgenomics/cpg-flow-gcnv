@@ -91,11 +91,10 @@ class CollectReadCounts(SequencingGroupStage):
     Per-sample stage that runs CollectReadCounts to produce .counts.tsv.gz files.
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path | str]':
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path]':
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
-            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}'),
         }
 
     def queue_jobs(self, seqgroup: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
@@ -108,7 +107,7 @@ class CollectReadCounts(SequencingGroupStage):
             intervals_path=inputs.as_path(get_multicohort(), PrepareIntervals, 'preprocessed'),
             cram_path=seqgroup.cram,
             job_attrs=self.get_job_attrs(seqgroup),
-            output_base_path=outputs['root'],
+            output_base_path=str(outputs['counts']).removesuffix('.counts.tsv.gz'),
         )
         return self.make_outputs(seqgroup, data=outputs, jobs=job)
 

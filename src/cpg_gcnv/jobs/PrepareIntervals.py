@@ -8,7 +8,20 @@ if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
 
 
-def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']) -> 'BashJob':
+def prepare_intervals(
+    job_attrs: dict[str, str],
+    output_paths: dict[str, 'Path'],
+) -> 'BashJob':
+    """
+    generate a job to prepare the intervals file for use by gCNV
+
+    Args:
+        job_attrs (dict): any params to attach to the job
+        output_paths (dict): paths to write the output files to
+
+    Returns:
+        job (BashJob): the job object
+    """
     job = get_batch().new_bash_job(
         'Prepare intervals',
         job_attrs | {'tool': 'gatk PreprocessIntervals/AnnotateIntervals'},
@@ -45,5 +58,6 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
     """)
 
     for key, path in output_paths.items():
-        get_batch().write_output(job[key], str(path))
+        get_batch().write_output(job[key], path)
+
     return job
