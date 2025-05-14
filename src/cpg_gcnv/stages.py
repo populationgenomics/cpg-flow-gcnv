@@ -305,7 +305,7 @@ class TrimOffSexChromosomes(CohortStage):
         for sgid in set(aneuploid_samples):
             return_dict[sgid] = cohort_prefix / f'{sgid}.segments.vcf.bgz'
 
-        if len(return_dict) >= 1:
+        if len(return_dict) > 1:
             # if don't need the placeholder, remove it
             return_dict.pop('placeholder')
 
