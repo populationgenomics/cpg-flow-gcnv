@@ -30,19 +30,18 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
         --padding 250 \
         --bin-length 0 \
         --interval-merging-rule OVERLAPPING_ONLY \
-        --output {job.preprocessed}
+        --output preprocessed.interval_list
     """)
-
-    # give the file an accurate extension
-    job.preprocessed.add_extension('.interval_list')
 
     job.command(f"""
     gatk AnnotateIntervals \
         --reference {reference.base} \
-        --intervals {job.preprocessed} \
+        --intervals preprocessed.interval_list \
         --interval-merging-rule OVERLAPPING_ONLY \
         --output {job.annotated}
     """)
+
+    job.command(f'mv preprocessed.interval_list {job.preprocessed}')
 
     for key, path in output_paths.items():
         get_batch().write_output(job[key], str(path))
