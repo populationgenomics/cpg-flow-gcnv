@@ -44,18 +44,15 @@ def shard_gcnv(
         job_res = HIGHMEM.request_resources(ncpu=8, mem_gb=52, storage_gb=10)
         job_res.set_to_job(job)
 
-        job.shard_intervals.add_extension('.interval_list')
-        job.shard_tarball.add_extension('.tar.gz')
-
         job.command(f"""
         tar -xzf {ploidy_calls_tarball} -C $BATCH_TMPDIR
 
-        {select_cmd} < {filtered_intervals} > {job.shard_intervals}
+        {select_cmd} < {filtered_intervals} > job.shard.interval_list
 
         gatk \
           --java-options "{job_res.java_mem_options()}" GermlineCNVCaller \
           --run-mode COHORT --interval-merging-rule OVERLAPPING_ONLY \
-          --intervals {job.shard_intervals} --annotated-intervals {annotated_intervals} \
+          --intervals job.shard.interval_list --annotated-intervals {annotated_intervals} \
           {counts_input} \
           --contig-ploidy-calls $BATCH_TMPDIR/ploidy-calls \
           --output $BATCH_TMPDIR --output-prefix {name}
