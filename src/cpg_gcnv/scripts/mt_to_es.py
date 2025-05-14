@@ -7,8 +7,8 @@ https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7
 """
 
 import math
-import time
 import sys
+import time
 from argparse import ArgumentParser
 from io import StringIO
 
@@ -55,7 +55,7 @@ LOADING_NODES_NAME = 'elasticsearch-es-data-loading*'
 
 # https://hail.is/docs/devel/types.html
 # https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-types.html
-def _elasticsearch_mapping_for_type(dtype):
+def _elasticsearch_mapping_for_type(dtype) -> dict:
     """
     https://github.com/broadinstitute/seqr-loading-pipelines/blob/c113106204165e22b7a8c629054e94533615e7d2/hail_scripts/elasticsearch/elasticsearch_utils.py#L53
     """
@@ -183,7 +183,7 @@ class ElasticsearchClient:
 
             self.es.indices.create(index=index_name, body=body)
 
-    def export_table_to_elasticsearch(self, table, **kwargs):
+    def export_table_to_elasticsearch(self, table, **kwargs):  # noqa: ANN003
         es_config = kwargs.get('elasticsearch_config', {})
         # to remove the write-null-values behaviour, remove the es.spark.dataframe.write.null entry
         es_config.update(

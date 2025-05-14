@@ -41,20 +41,20 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
         ),
     )
 
-    def _genotype_filter_samples(fn):
+    def _genotype_filter_samples(fn) -> hl.set[str]:
         # Filter on the genotypes.
         return hl.set(mt.genotypes.filter(fn).map(lambda g: g.sample_id))
 
-    def _genotype_filter_samples_cn2():
+    def _genotype_filter_samples_cn2() -> hl.set[str]:
         # Filter on the genotypes.
-        return hl.set(mt.genotypes.filter(lambda g: ((g.gt.is_haploid()) & (g.cn == 2))).map(lambda g: g.sample_id))
+        return hl.set(mt.genotypes.filter(lambda g: ((g.gt.is_haploid()) & (g.cn == 2))).map(lambda g: g.sample_id))  # noqa: PLR2004
 
     # top level - decorator
-    def _capture_i_decorator(func):
+    def _capture_i_decorator(func):  # noqa: ANN202
         # call the returned_function(i) which locks in the value of i
-        def _inner_filter(i):
+        def _inner_filter(i):  # noqa: ANN202
             # the _genotype_filter_samples will call this _func with g
-            def _func(g):
+            def _func(g):  # noqa: ANN202
                 return func(i, g)
 
             return _func
@@ -62,15 +62,15 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
         return _inner_filter
 
     @_capture_i_decorator
-    def _filter_sample_cn(i, g):
+    def _filter_sample_cn(i, g) -> bool:
         return g.cn == i
 
     @_capture_i_decorator
-    def _filter_samples_gq(i, g):
+    def _filter_samples_gq(i, g) -> bool:
         return (g.gq >= i) & (g.gq < i + 10)
 
     @_capture_i_decorator
-    def _filter_num_alt(i, g):
+    def _filter_num_alt(i, g) -> bool:
         return i == g.gt.n_alt_alleles()
 
     # github.com/populationgenomics/seqr-loading-pipelines/blob/master/luigi_pipeline/lib/model/gcnv_mt_schema.py
@@ -78,7 +78,7 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
         # dubious about this annotation - expected field is qs, I'm using gq, derived from CNQ
         samples_qs=hl.struct(
             **{f'{i}_to_{i + 10}': _genotype_filter_samples(_filter_samples_gq(i)) for i in range(0, 1000, 10)},
-            gt_1000=_genotype_filter_samples(lambda g: g.gq >= 1000),
+            gt_1000=_genotype_filter_samples(lambda g: g.gq >= 1000),  # noqa: PLR2004
         ),
         # ok, here's what we're
         samples_cn=hl.struct(
