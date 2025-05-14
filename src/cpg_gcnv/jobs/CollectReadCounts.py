@@ -23,8 +23,8 @@ def collect_read_counts(
 
     job.declare_resource_group(
         counts={
-            'tsv.gz': '{root}.tsv.gz',
-            'tsv.gz.tbi': '{root}.tsv.gz.tbi',
+            'tsv.gz': '{root}.counts.tsv.gz',
+            'tsv.gz.tbi': '{root}.counts.tsv.gz.tbi',
         },
     )
 
@@ -43,10 +43,10 @@ def collect_read_counts(
         --input {cram_path.path} \
         --read-index {cram_path.index_path} \
         --format TSV \
-        --output {job.counts}.tsv
+        --output {job.counts}.counts.tsv
         """)
 
-    job.command(f'bgzip {job.counts}.tsv')
-    job.command(f'gatk IndexFeatureFile --input {job.counts["tsv.gz"]}')
+    job.command(f'bgzip {job.counts}.counts.tsv')
+    job.command(f'gatk IndexFeatureFile --input {job.counts["counts.tsv.gz"]}')
     get_batch().write_output(job.counts, output_base_path)
     return job

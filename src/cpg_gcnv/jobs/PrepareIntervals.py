@@ -5,11 +5,11 @@ from cpg_utils.hail_batch import fasta_res_group, get_batch
 
 if TYPE_CHECKING:
     from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
 
 
-def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']) -> 'Job':
-    job = get_batch().new_job(
+def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']) -> 'BashJob':
+    job = get_batch().new_bash_job(
         'Prepare intervals',
         job_attrs | {'tool': 'gatk PreprocessIntervals/AnnotateIntervals'},
     )
