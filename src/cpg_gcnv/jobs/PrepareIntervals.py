@@ -22,6 +22,8 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
     )
 
     intervals = get_batch().read_input(config_retrieve(['workflow', 'intervals_path']))
+
+    # use a temp file, GATK is very snippy about file names and extensions
     job.command(f"""
     gatk PreprocessIntervals \
         --reference {reference.base} \
