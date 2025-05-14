@@ -44,6 +44,9 @@ def shard_gcnv(
         job_res = HIGHMEM.request_resources(ncpu=8, mem_gb=52, storage_gb=10)
         job_res.set_to_job(job)
 
+        job.shard_intervals.add_extension('.interval_list')
+        job.shard_tarball.add_extension('.tar.gz')
+
         job.command(f"""
         tar -xzf {ploidy_calls_tarball} -C $BATCH_TMPDIR
 
