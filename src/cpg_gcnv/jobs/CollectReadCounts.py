@@ -23,8 +23,8 @@ def collect_read_counts(
 
     job.declare_resource_group(
         counts={
-            'tsv.gz': '{root}.counts.tsv.gz',
-            'tsv.gz.tbi': '{root}.counts.tsv.gz.tbi',
+            'counts.tsv.gz': '{root}.counts.tsv.gz',
+            'counts.tsv.gz.tbi': '{root}.counts.tsv.gz.tbi',
         },
     )
 
