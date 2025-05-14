@@ -22,6 +22,10 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
     )
 
     intervals = get_batch().read_input(config_retrieve(['workflow', 'intervals_path']))
+
+    # give the file an accurate extension
+    job.preprocessed.add_extension('.interval_list')
+
     job.command(f"""
     gatk PreprocessIntervals \
         --reference {reference.base} \
@@ -32,10 +36,6 @@ def prepare_intervals(job_attrs: dict[str, str], output_paths: dict[str, 'Path']
         --interval-merging-rule OVERLAPPING_ONLY \
         --output {job.preprocessed}
     """)
-
-    # give the file an accurate extension
-    job.preprocessed.add_extension('.interval_list')
-
     job.command(f"""
     gatk AnnotateIntervals \
         --reference {reference.base} \
