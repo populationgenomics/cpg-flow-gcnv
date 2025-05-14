@@ -95,7 +95,7 @@ class CollectReadCounts(SequencingGroupStage):
         return {
             'counts': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz',
             'index': seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts.tsv.gz.tbi',
-            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}.counts'),
+            'root': str(seqgroup.dataset.prefix() / 'gcnv' / f'{seqgroup.id}'),
         }
 
     def queue_jobs(self, seqgroup: 'SequencingGroup', inputs: 'StageInput') -> 'StageOutput':
