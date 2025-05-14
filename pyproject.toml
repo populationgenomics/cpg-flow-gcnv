@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 # TODO(you): update this to reflect the project's name & description
@@ -26,6 +26,7 @@ dependencies=[
     "cpg-utils>=5.3.0",
     "elasticsearch>=9.0.1",
     "google-auth>=2.38.0",
+    "hatchling>=1.27.0",
     "loguru>=0.7.3",
     "ruff>=0.11.0",
 ]
