@@ -681,7 +681,7 @@ class MtToEsCnv(DatasetStage):
         """
 
         # get the absolute path to the MT
-        mt_path = inputs.as_str(target=dataset, stage=AnnotateDatasetCnv, key='mt')
+        mt_path = inputs.as_str(target=dataset, stage=AnnotateDatasetCnv)
 
         outputs = self.expected_outputs(dataset)
 
