@@ -20,7 +20,7 @@ def queue_annotate_sv_jobs(
     multicohort: 'MultiCohort',
     prefix: Path,
     input_vcf: Path,
-    outputs: dict,
+    outputs: dict[str, Path],
     labels: dict[str, str],
 ) -> 'list[BashJob]':
     """

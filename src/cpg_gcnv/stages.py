@@ -538,15 +538,19 @@ class AnnotateCnvsWithSvAnnotate(MultiCohortStage):
       frequencies of their overlapping SVs in another callset, e.g. gnomad SV callset.
     """
 
-    def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
-        return self.prefix / 'merged_gcnv_annotated.vcf.bgz'
+    def expected_outputs(self, multicohort: 'MultiCohort') -> dict[str, 'Path']:
+        # kinda important to keep this as a dictionary for the pipeline - extracted by name as cromwell outputs
+        return {
+            'annotated_vcf': self.prefix / 'merged_gcnv_annotated.vcf.bgz',
+            'annotated_vcf_index': self.prefix / 'merged_gcnv_annotated.vcf.bgz.tbi',
+        }
 
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
         configure and queue jobs for SV annotation
         passing the VCF Index has become implicit, which may be a problem for us
         """
-        output = self.expected_outputs(multicohort)
+        outputs = self.expected_outputs(multicohort)
 
         input_vcf = inputs.as_str(multicohort, MergeCohortsgCNV)
 
@@ -554,10 +558,10 @@ class AnnotateCnvsWithSvAnnotate(MultiCohortStage):
             multicohort=multicohort,
             prefix=self.prefix,
             input_vcf=input_vcf,
-            outputs=output,
+            outputs=outputs,
             labels={'stage': self.name.lower(), AR_GUID_NAME: try_get_ar_guid()},
         )
-        return self.make_outputs(multicohort, data=output, jobs=jobs)
+        return self.make_outputs(multicohort, data=outputs, jobs=jobs)
 
 
 @stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv', analysis_keys=['strvctvre_vcf'])
