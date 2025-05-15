@@ -2,7 +2,7 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from cpg_utils.cloud import read_secret
-from cpg_utils.config import config_retrieve
+from cpg_utils.config import config_retrieve, ConfigError
 from cpg_utils.hail_batch import get_batch
 from google.api_core.exceptions import PermissionDenied
 from loguru import logger
@@ -51,7 +51,7 @@ def submit_es_job_for_dataset(
     except PermissionDenied:
         logger.warning(f'No permission to access ES password, skipping for {dataset}')
         return None
-    except KeyError:
+    except (ConfigError, KeyError):
         logger.warning(f'ES section not in config, skipping for {dataset}')
         return None
 
