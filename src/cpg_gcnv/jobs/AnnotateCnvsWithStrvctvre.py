@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 
 def annotate_cnvs_with_strvctvre(
     input_vcf: str,
-    input_vcf_index: str,
     output_vcf: str,
     job_attrs: dict[str, str],
 ) -> 'BashJob':
@@ -30,7 +29,7 @@ def annotate_cnvs_with_strvctvre(
     # read vcf and index into the batch
     input_vcf = get_batch().read_input_group(
         vcf=input_vcf,
-        vcf_index=input_vcf_index,
+        vcf_index=f'{input_vcf}.tbi',
     )['vcf']
 
     job.declare_resource_group(output_vcf={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})

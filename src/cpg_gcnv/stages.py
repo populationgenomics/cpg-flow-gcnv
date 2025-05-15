@@ -492,12 +492,8 @@ class MergeCohortsgCNV(MultiCohortStage):
     We could use Jasmine for a better merge
     """
 
-    def expected_outputs(self, multicohort: 'MultiCohort') -> 'dict[str, Path | str]':
-        prefix = self.prefix
-        return {
-            'merged_vcf': prefix / 'multi_cohort_gcnv.vcf.bgz',
-            'merged_vcf_index': prefix / 'multi_cohort_gcnv.vcf.bgz.tbi',
-        }
+    def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
+        return self.prefix / 'multi_cohort_gcnv.vcf.bgz'
 
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
@@ -510,17 +506,17 @@ class MergeCohortsgCNV(MultiCohortStage):
         Returns:
             the bcftools merge job to join the 'Cohort'-VCFs into a 'MultiCohort' VCF
         """
-        outputs = self.expected_outputs(multicohort)
+        output = self.expected_outputs(multicohort)
         cohort_merges = inputs.as_dict_by_target(FastCombineGCNVs)
         cohort_vcfs = [str(cohort_merges[cohort.id]['combined_calls']) for cohort in multicohort.get_cohorts()]
 
         job_or_none = fast_merge_calls(
             sg_vcfs=cohort_vcfs,
             job_attrs=self.get_job_attrs(multicohort),
-            output_path=outputs['merged_vcf'],
+            output_path=output,
         )
 
-        return self.make_outputs(multicohort, data=outputs, jobs=job_or_none)
+        return self.make_outputs(multicohort, data=output, jobs=job_or_none)
 
 
 @stage(required_stages=MergeCohortsgCNV, analysis_type='cnv', analysis_keys=['annotated_vcf'])
@@ -542,28 +538,26 @@ class AnnotateCnvsWithSvAnnotate(MultiCohortStage):
       frequencies of their overlapping SVs in another callset, e.g. gnomad SV callset.
     """
 
-    def expected_outputs(self, multicohort: 'MultiCohort') -> dict:
-        prefix = self.prefix
-        return {
-            'annotated_vcf': prefix / 'merged_gcnv_annotated.vcf.bgz',
-            'annotated_vcf_index': prefix / 'merged_gcnv_annotated.vcf.bgz.tbi',
-        }
+    def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
+        return self.prefix / 'merged_gcnv_annotated.vcf.bgz'
 
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         """
         configure and queue jobs for SV annotation
         passing the VCF Index has become implicit, which may be a problem for us
         """
-        expected_out = self.expected_outputs(multicohort)
+        output = self.expected_outputs(multicohort)
+
+        input_vcf = inputs.as_str(multicohort, MergeCohortsgCNV)
 
         jobs = queue_annotate_sv_jobs(
             multicohort=multicohort,
             prefix=self.prefix,
-            input_vcf=inputs.as_dict(multicohort, MergeCohortsgCNV)['merged_vcf'],
-            outputs=expected_out,
+            input_vcf=input_vcf,
+            outputs=output,
             labels={'stage': self.name.lower(), AR_GUID_NAME: try_get_ar_guid()},
         )
-        return self.make_outputs(multicohort, data=expected_out, jobs=jobs)
+        return self.make_outputs(multicohort, data=output, jobs=jobs)
 
 
 @stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv', analysis_keys=['strvctvre_vcf'])
@@ -574,11 +568,10 @@ class AnnotateCnvsWithStrvctvre(MultiCohortStage):
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         output = self.expected_outputs(multicohort)
 
-        input_dict = inputs.as_dict(multicohort, AnnotateCnvsWithSvAnnotate)
+        input_vcf = inputs.as_str(multicohort, AnnotateCnvsWithSvAnnotate)
 
         job = annotate_cnvs_with_strvctvre(
-            input_vcf=str(input_dict['annotated_vcf']),
-            input_vcf_index=str(input_dict['annotated_vcf_index']),
+            input_vcf=input_vcf,
             output_vcf=str(output),
             job_attrs=self.get_job_attrs() | {'tool': 'strvctvre'},
         )
