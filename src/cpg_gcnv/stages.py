@@ -410,7 +410,7 @@ class RecalculateClusteredQuality(SequencingGroupStage):
     This is done as another pass through PostprocessGermlineCNVCalls, with prior/clustered results
     """
 
-    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path | str]':
+    def expected_outputs(self, seqgroup: 'SequencingGroup') -> 'dict[str, Path]':
         # identify the cohort that contains this SGID
         this_cohort = get_cohort_for_sgid(seqgroup.id)
 
@@ -485,7 +485,7 @@ class FastCombineGCNVs(CohortStage):
         return self.make_outputs(cohort, data=outputs, jobs=jobs)
 
 
-@stage(required_stages=FastCombineGCNVs, analysis_type='cnv', analysis_keys=['merged_vcf'])
+@stage(required_stages=FastCombineGCNVs, analysis_type='cnv')
 class MergeCohortsgCNV(MultiCohortStage):
     """
     Takes all the per-'Cohort' results and merges them into a pseudocallset
@@ -564,7 +564,7 @@ class AnnotateCnvsWithSvAnnotate(MultiCohortStage):
         return self.make_outputs(multicohort, data=outputs, jobs=jobs)
 
 
-@stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv', analysis_keys=['strvctvre_vcf'])
+@stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv')
 class AnnotateCnvsWithStrvctvre(MultiCohortStage):
     def expected_outputs(self, multicohort: 'MultiCohort') -> 'Path':
         return self.prefix / 'cnv_strvctvre_annotated.vcf.bgz'
@@ -572,7 +572,7 @@ class AnnotateCnvsWithStrvctvre(MultiCohortStage):
     def queue_jobs(self, multicohort: 'MultiCohort', inputs: 'StageInput') -> 'StageOutput':
         output = self.expected_outputs(multicohort)
 
-        input_vcf = inputs.as_str(multicohort, AnnotateCnvsWithSvAnnotate)
+        input_vcf = inputs.as_str(multicohort, AnnotateCnvsWithSvAnnotate, key='annotated_vcf')
 
         job = annotate_cnvs_with_strvctvre(
             input_vcf=input_vcf,
@@ -611,7 +611,7 @@ class AnnotateCohortCnv(MultiCohortStage):
         return self.make_outputs(multicohort, data=output, jobs=job)
 
 
-@stage(required_stages=AnnotateCohortCnv, analysis_type='cnv', analysis_keys=['mt'])
+@stage(required_stages=AnnotateCohortCnv, analysis_type='cnv')
 class AnnotateDatasetCnv(DatasetStage):
     """
     Subset the MT to be this 'Dataset' only, then work up all the genotype values
