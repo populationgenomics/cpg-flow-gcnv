@@ -27,7 +27,7 @@ def upgrade_ped_file(ped_file: str, new_output: str, aneuploidies: str, ploidy_t
 
     # path to the python script
     j.command(f'tar -xf {ploidy_tar} -C .')  # creates the folder ploidy-calls
-    j.command(f'{upgrade_ped_with_inferred_sex.__file__} {local_ped} {j.output} {j.aneuploidies} ploidy-calls')
+    j.command(f'python3 {upgrade_ped_with_inferred_sex.__file__} {local_ped} {j.output} {j.aneuploidies} ploidy-calls')
     get_batch().write_output(j.output, new_output)
     get_batch().write_output(j.aneuploidies, aneuploidies)
     return j

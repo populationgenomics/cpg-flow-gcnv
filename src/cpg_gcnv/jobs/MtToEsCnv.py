@@ -68,7 +68,12 @@ def submit_es_job_for_dataset(
 
     # run the export from the localised MT - this job writes no new data, just transforms and exports over network
     job.command(
-        f'{mt_to_es.__file__} --mt_path "${{BATCH_TMPDIR}}/{mt_name}" --index {index_name!s} --flag {done_flag!s}',
+        f"""
+        python3 {mt_to_es.__file__} \
+            --mt_path "${{BATCH_TMPDIR}}/{mt_name}" \
+            --index {index_name!s} \
+            --flag {done_flag!s}
+        """
     )
 
     return job

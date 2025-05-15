@@ -21,8 +21,6 @@ def submit_annotate_dataset_job(
     job = get_batch().new_bash_job('AnnotateDataset gCNV multicohort', attributes)
     job.image(config_retrieve(['workflow', 'driver_image']))
 
-    job.command(
-        f'{annotate_dataset.__file__} --mt_in {input_mt} --mt_out {output_mt} ',
-    )
+    job.command(f'python3 {annotate_dataset.__file__} --mt_in {input_mt} --mt_out {output_mt}')
 
     return job

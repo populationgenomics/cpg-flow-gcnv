@@ -58,7 +58,7 @@ def fast_merge_calls(sg_vcfs: list[str], job_attrs: dict[str, str], output_path:
     update_job = get_batch().new_bash_job('Update VCF content')
     update_job.image(config_retrieve(['workflow', 'driver_image']))
     update_job.storage('10Gi')
-    update_job.command(f'{update_vcf_attributes.__file__} {merge_job.tmp_vcf_split} {update_job.output}')
+    update_job.command(f'python3 {update_vcf_attributes.__file__} {merge_job.tmp_vcf_split} {update_job.output}')
 
     # a third job just to tidy up
     third_job = get_batch().new_job('bgzip and tabix')

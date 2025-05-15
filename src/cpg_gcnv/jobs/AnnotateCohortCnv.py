@@ -21,7 +21,7 @@ def submit_annotate_cohort_job(
     gencode_gtf_local = get_batch().read_input(gencode_gz)
 
     job.command(
-        f'{annotate_cohort.__file__} '
+        f'python3 {annotate_cohort.__file__} '
         f'--mt_out {output_mt} '
         f'--checkpoint {checkpoint!s} '
         f'--vcf {input_vcf} '
