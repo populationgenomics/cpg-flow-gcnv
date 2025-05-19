@@ -27,3 +27,4 @@ def submit_annotate_cohort_job(
         f'--vcf {input_vcf} '
         f'--gencode {gencode_gtf_local!s} ',
     )
+    return job
