@@ -2,7 +2,7 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from cpg_utils.cloud import read_secret
-from cpg_utils.config import config_retrieve, ConfigError
+from cpg_utils.config import ConfigError, config_retrieve
 from cpg_utils.hail_batch import get_batch
 from google.api_core.exceptions import PermissionDenied
 from loguru import logger
@@ -73,7 +73,7 @@ def submit_es_job_for_dataset(
             --mt_path "${{BATCH_TMPDIR}}/{mt_name}" \
             --index {index_name!s} \
             --flag {done_flag!s}
-        """
+        """,
     )
 
     return job
