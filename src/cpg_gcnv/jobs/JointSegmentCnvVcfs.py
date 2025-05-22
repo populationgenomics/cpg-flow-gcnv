@@ -1,13 +1,11 @@
 from typing import TYPE_CHECKING
 
-from cpg_flow.resources import HIGHMEM
-from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import fasta_res_group, get_batch
+from cpg_flow import resources
+from cpg_utils import Path, config, hail_batch
 
 from cpg_gcnv.utils import chunks
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
     from hailtop.batch import Resource, ResourceFile, ResourceGroup
     from hailtop.batch.job import BashJob
 
@@ -30,12 +28,12 @@ def joint_segment_vcfs(
     Returns:
         the job that does the work, and the resulting resource group of VCF & index
     """
-    job = get_batch().new_bash_job(f'Joint Segmentation {title}', job_attrs | {'tool': 'gatk'})
+    job = hail_batch.get_batch().new_bash_job(f'Joint Segmentation {title}', job_attrs | {'tool': 'gatk'})
     job.declare_resource_group(output={'vcf.gz': '{root}.vcf.gz', 'vcf.gz.tbi': '{root}.vcf.gz.tbi'})
-    job.image(image_path('gatk_gcnv'))
+    job.image(config.image_path('gatk_gcnv'))
 
     # set highmem resources for this job
-    job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=10)
+    job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=10)
     job_res.set_to_job(job)
 
     vcf_string = ''
@@ -59,10 +57,10 @@ def joint_segment_vcfs(
 
 def run_joint_segmentation(
     segment_vcfs: list[str],
-    pedigree: 'Path',
-    intervals: 'Path',
-    tmp_prefix: 'Path',
-    output_path: 'Path',
+    pedigree: Path,
+    intervals: Path,
+    tmp_prefix: Path,
+    output_path: Path,
     job_attrs: dict[str, str] | None = None,
 ) -> 'list[BashJob]':
     """
@@ -85,13 +83,13 @@ def run_joint_segmentation(
     """
     jobs = []
 
-    pedigree_in_batch = get_batch().read_input(pedigree)
-    intervals_in_batch = get_batch().read_input(intervals)
+    pedigree_in_batch = hail_batch.get_batch().read_input(pedigree)
+    intervals_in_batch = hail_batch.get_batch().read_input(intervals)
 
     # find the number of samples to shove into each scatter block
-    sams_per_block = config_retrieve(['workflow', 'num_samples_per_scatter_block'])
+    sams_per_block = config.config_retrieve(['workflow', 'num_samples_per_scatter_block'])
 
-    reference = fasta_res_group(get_batch())
+    reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 
     chunked_vcfs = []
 
@@ -101,7 +99,13 @@ def run_joint_segmentation(
         for subchunk_index, chunk_vcfs in enumerate(chunks(segment_vcfs, sams_per_block)):
             # create a new job for each chunk
             # read these files into this batch
-            local_vcfs = [get_batch().read_input_group(vcf=vcf, index=f'{vcf}.tbi')['vcf'] for vcf in chunk_vcfs]
+            local_vcfs = [
+                hail_batch.get_batch().read_input_group(
+                    vcf=vcf,
+                    index=f'{vcf}.tbi',
+                )['vcf']
+                for vcf in chunk_vcfs
+            ]
             job, vcf_group = joint_segment_vcfs(
                 local_vcfs,
                 pedigree=pedigree_in_batch,
@@ -111,12 +115,20 @@ def run_joint_segmentation(
                 title=f'sub-chunk_{subchunk_index}',
             )
             chunked_vcfs.append(vcf_group['vcf.gz'])
-            get_batch().write_output(vcf_group, tmp_prefix / f'subchunk_{subchunk_index}')
+            hail_batch.get_batch().write_output(vcf_group, tmp_prefix / f'subchunk_{subchunk_index}')
             jobs.append(job)
 
     # else, all vcf files into the batch
     else:
-        chunked_vcfs = [get_batch().read_input_group(vcf=vcf, index=f'{vcf}.tbi').vcf for vcf in segment_vcfs]
+        chunked_vcfs = [
+            hail_batch.get_batch()
+            .read_input_group(
+                vcf=vcf,
+                index=f'{vcf}.tbi',
+            )
+            .vcf
+            for vcf in segment_vcfs
+        ]
 
     # second round of condensing output - produces one single file
     job, vcf_group = joint_segment_vcfs(
@@ -130,5 +142,5 @@ def run_joint_segmentation(
     jobs.append(job)
 
     # write the final output file group (VCF & index)
-    get_batch().write_output(vcf_group, f'{str(output_path).removesuffix(".vcf.gz")}')
+    hail_batch.get_batch().write_output(vcf_group, f'{str(output_path).removesuffix(".vcf.gz")}')
     return jobs

@@ -1,14 +1,10 @@
 import re
 from typing import TYPE_CHECKING
 
-from cpg_flow.resources import HIGHMEM
-from cpg_utils import to_path
-from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import authenticate_cloud_credentials_in_job, fasta_res_group, get_batch
+from cpg_flow import resources, targets
+from cpg_utils import Path, config, hail_batch, to_path
 
 if TYPE_CHECKING:
-    from cpg_flow.targets import MultiCohort
-    from cpg_utils import Path
     from hailtop.batch.job import BashJob
 
 
@@ -65,7 +61,7 @@ def clean_ped_family_ids(ped_line: str) -> str:
     return '\t'.join(split_line) + '\n'
 
 
-def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
+def make_combined_ped(cohort: targets.MultiCohort, prefix: Path) -> Path:
     """
     Create cohort + ref panel PED.
     Concatenating all samples across all datasets with ref panel
@@ -73,7 +69,7 @@ def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
     See #578 - there are restrictions on valid characters in PED file
     """
     combined_ped_path = prefix / 'ped_with_ref_panel.ped'
-    conf_ped_path = config_retrieve(['references', 'broad', 'ped_file'])
+    conf_ped_path = config.config_retrieve(['references', 'broad', 'ped_file'])
     with combined_ped_path.open('w') as out:
         with cohort.write_ped_file().open() as f:
             # layer of family ID cleaning
@@ -86,8 +82,8 @@ def make_combined_ped(cohort: 'MultiCohort', prefix: 'Path') -> 'Path':
 
 
 def postprocess_calls(
-    ploidy_calls_path: 'Path',
-    shard_paths: dict[str, 'Path'],
+    ploidy_calls_path: Path,
+    shard_paths: dict[str, Path],
     sample_index: int,
     job_attrs: dict[str, str],
     output_prefix: str,
@@ -102,17 +98,17 @@ def postprocess_calls(
 
     job_name = 'Postprocess gCNV calls with clustered VCF' if clustered_vcf else 'Postprocess gCNV calls'
 
-    job = get_batch().new_bash_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
-    job.image(image_path('gatk_gcnv'))
+    job = hail_batch.get_batch().new_bash_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
+    job.image(config.image_path('gatk_gcnv'))
 
     # set highmem resources for this job
-    job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=20)
+    job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=20)
     job_res.set_to_job(job)
-    authenticate_cloud_credentials_in_job(job)
+    hail_batch.authenticate_cloud_credentials_in_job(job)
 
-    reference = fasta_res_group(get_batch())
+    reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 
-    ploidy_calls_tarball = get_batch().read_input(ploidy_calls_path)
+    ploidy_calls_tarball = hail_batch.get_batch().read_input(ploidy_calls_path)
 
     job.command(f'tar -xzf {ploidy_calls_tarball} -C $BATCH_TMPDIR/inputs')
 
@@ -120,13 +116,13 @@ def postprocess_calls(
     calls_shard_args = ''
 
     for name, path in [(shard, shard_paths[shard]) for shard in shard_items(name_only=True)]:
-        shard_tar = get_batch().read_input(path)
+        shard_tar = hail_batch.get_batch().read_input(path)
         job.command(f'tar -xzf {shard_tar} -C $BATCH_TMPDIR/inputs')
         model_shard_args += f' --model-shard-path $BATCH_TMPDIR/inputs/{name}-model'
         calls_shard_args += f' --calls-shard-path $BATCH_TMPDIR/inputs/{name}-calls'
 
     allosomal_contigs_args = ' '.join(
-        [f'--allosomal-contig {c}' for c in config_retrieve(['workflow', 'allosomal_contigs'], [])],
+        [f'--allosomal-contig {c}' for c in config.config_retrieve(['workflow', 'allosomal_contigs'], [])],
     )
 
     # declare all output files in advance
@@ -142,8 +138,8 @@ def postprocess_calls(
 
     extra_args = ''
     if clustered_vcf:
-        local_clusters = get_batch().read_input_group(vcf=clustered_vcf, index=f'{clustered_vcf}.tbi').vcf
-        local_intervals = get_batch().read_input_group(vcf=intervals_vcf, index=f'{intervals_vcf}.tbi').vcf
+        local_clusters = hail_batch.get_batch().read_input_group(vcf=clustered_vcf, index=f'{clustered_vcf}.tbi').vcf
+        local_intervals = hail_batch.get_batch().read_input_group(vcf=intervals_vcf, index=f'{intervals_vcf}.tbi').vcf
         extra_args += f"""--clustered-breakpoints {local_clusters} \
          --input-intervals-vcf {local_intervals} \
           -R {reference.base}
@@ -170,8 +166,8 @@ def postprocess_calls(
     job.command(f'tabix -f {job.output["segments.vcf.gz"]}')
 
     if clustered_vcf:
-        max_events = config_retrieve(['workflow', 'gncv_max_events'])
-        max_pass_events = config_retrieve(['workflow', 'gncv_max_pass_events'])
+        max_events = config.config_retrieve(['workflow', 'gncv_max_events'])
+        max_pass_events = config.config_retrieve(['workflow', 'gncv_max_pass_events'])
 
         # do some additional QC to determine pass/fail
         job.command(
@@ -193,17 +189,17 @@ def postprocess_calls(
         cat {job.qc_file}
         """,
         )
-        get_batch().write_output(job.qc_file, qc_file)
+        hail_batch.get_batch().write_output(job.qc_file, qc_file)
 
-    get_batch().write_output(job.output, output_prefix)
+    hail_batch.get_batch().write_output(job.output, output_prefix)
 
     return job
 
 
-def counts_input_args(counts_paths: list['Path']) -> str:
+def counts_input_args(counts_paths: list[Path]) -> str:
     args = ''
     for f in counts_paths:
-        counts = get_batch().read_input_group(
+        counts = hail_batch.get_batch().read_input_group(
             **{
                 'counts.tsv.gz': str(f),
                 'counts.tsv.gz.tbi': str(f) + '.tbi',
@@ -215,7 +211,7 @@ def counts_input_args(counts_paths: list['Path']) -> str:
 
 
 def shard_items(name_only: bool):
-    if shard_partition := config_retrieve(['workflow', 'interval_shards']):
+    if shard_partition := config.config_retrieve(['workflow', 'interval_shards']):
         count = len(shard_partition)
         for i, interval in enumerate(shard_partition, start=1):
             name = 'part' + 'c'.join([s.removeprefix('chr') for s in interval])

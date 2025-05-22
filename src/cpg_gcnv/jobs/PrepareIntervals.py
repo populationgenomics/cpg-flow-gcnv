@@ -1,16 +1,14 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils.config import config_retrieve, image_path
-from cpg_utils.hail_batch import fasta_res_group, get_batch
+from cpg_utils import Path, config, hail_batch
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
     from hailtop.batch.job import BashJob
 
 
 def prepare_intervals(
     job_attrs: dict[str, str],
-    output_paths: dict[str, 'Path'],
+    output_paths: dict[str, Path],
 ) -> 'BashJob':
     """
     generate a job to prepare the intervals file for use by gCNV
@@ -22,19 +20,25 @@ def prepare_intervals(
     Returns:
         job (BashJob): the job object
     """
-    job = get_batch().new_bash_job(
+    job = hail_batch.get_batch().new_bash_job(
         'Prepare intervals',
         job_attrs | {'tool': 'gatk PreprocessIntervals/AnnotateIntervals'},
     )
-    job.image(image_path('gatk_gcnv'))
+    job.image(hail_batch.image_path('gatk_gcnv'))
 
-    reference = fasta_res_group(get_batch())
+    reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 
     exclude_intervals_args = ' '.join(
-        [f'--exclude-intervals {i}' for i in config_retrieve(['workflow', 'exclude_intervals'], [])],
+        [
+            f'--exclude-intervals {i}'
+            for i in config.config_retrieve(
+                ['workflow', 'exclude_intervals'],
+                [],
+            )
+        ],
     )
 
-    intervals = get_batch().read_input(config_retrieve(['workflow', 'intervals_path']))
+    intervals = hail_batch.get_batch().read_input(config.config_retrieve(['workflow', 'intervals_path']))
 
     # give the file an accurate extension
     job.preprocessed.add_extension('.interval_list')
@@ -58,6 +62,6 @@ def prepare_intervals(
     """)
 
     for key, path in output_paths.items():
-        get_batch().write_output(job[key], path)
+        hail_batch.get_batch().write_output(job[key], path)
 
     return job

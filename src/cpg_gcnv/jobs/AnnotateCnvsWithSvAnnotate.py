@@ -4,10 +4,11 @@ from typing import TYPE_CHECKING
 from cpg_flow import targets
 from cpg_utils import Path, config, cromwell, hail_batch
 
-from cpg_gcnv.utils import make_combined_ped
+from cpg_gcnv import utils
 
 if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
+
 
 GATK_SV_COMMIT = 'dc145a52f76a6f425ac3f481171040e78c0cfeea'
 ANNOTATION_WORKFLOW = 'AnnotateVcf'
@@ -26,7 +27,7 @@ def queue_annotate_sv_jobs(
     input_dict: dict = {
         'vcf': input_vcf,
         'prefix': multicohort.name,
-        'ped_file': make_combined_ped(multicohort, prefix),
+        'ped_file': utils.make_combined_ped(multicohort, prefix),
         'sv_per_shard': 5000,
         'external_af_population': config.config_retrieve(['references', 'gatk_sv', 'external_af_population']),
         'external_af_ref_prefix': config.config_retrieve(['references', 'gatk_sv', 'external_af_ref_bed_prefix']),

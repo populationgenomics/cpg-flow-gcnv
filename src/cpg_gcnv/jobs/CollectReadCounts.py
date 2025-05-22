@@ -1,17 +1,15 @@
 from typing import TYPE_CHECKING
 
-from cpg_flow.resources import HIGHMEM
-from cpg_utils.config import image_path
-from cpg_utils.hail_batch import fasta_res_group, get_batch
+from cpg_flow import resources
+from cpg_utils import Path, config, hail_batch
 
 if TYPE_CHECKING:
     from cpg_flow.filetypes import CramPath
-    from cpg_utils import Path
     from hailtop.batch.job import BashJob
 
 
 def collect_read_counts(
-    intervals_path: 'Path',
+    intervals_path: Path,
     cram_path: 'CramPath',
     job_attrs: dict[str, str],
     output_base_path: str,
@@ -28,10 +26,11 @@ def collect_read_counts(
     Returns:
         job (BashJob): The job object for the CollectReadCounts step
     """
-    job = get_batch().new_bash_job('Collect gCNV read counts', job_attrs | {'tool': 'gatk CollectReadCounts'})
-    job.image(image_path('gatk_gcnv'))
+    labels = job_attrs | {'tool': 'gatk CollectReadCounts'}
+    job = hail_batch.get_batch().new_bash_job('Collect gCNV read counts', labels)
+    job.image(config.image_path('gatk_gcnv'))
 
-    reference = fasta_res_group(get_batch())
+    reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 
     # the specific GATK module here needs the full suffix ".counts.tsv.gz" to recognize the file format
     job.declare_resource_group(
@@ -42,7 +41,7 @@ def collect_read_counts(
     )
 
     # set highmem resources for this job
-    job_res = HIGHMEM.request_resources(ncpu=2, storage_gb=10)
+    job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=10)
     job_res.set_to_job(job)
 
     job.cpu(2).storage('10Gi').memory('highmem')
@@ -61,5 +60,5 @@ def collect_read_counts(
 
     job.command(f'bgzip {job.counts}.counts.tsv')
     job.command(f'gatk IndexFeatureFile --input {job.counts["counts.tsv.gz"]}')
-    get_batch().write_output(job.counts, output_base_path)
+    hail_batch.get_batch().write_output(job.counts, output_base_path)
     return job

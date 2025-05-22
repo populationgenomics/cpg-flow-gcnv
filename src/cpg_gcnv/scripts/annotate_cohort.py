@@ -7,8 +7,8 @@ import gzip
 from argparse import ArgumentParser
 from os.path import join
 
-from cpg_utils.hail_batch import genome_build, init_batch
-from loguru import logger
+from cpg_utils import hail_batch
+import loguru
 
 import hail as hl
 
@@ -74,7 +74,7 @@ def parse_gtf_from_local(gtf_path: str) -> hl.dict:
         the gene lookup dictionary as a Hail DictExpression
     """
     gene_id_mapping = {}
-    logger.info(f'Loading {gtf_path}')
+    loguru.logger.info(f'Loading {gtf_path}')
     with gzip.open(gtf_path, 'rt') as gencode_file:
         # iterate over this file and do all the things
         for i, line in enumerate(gencode_file):
@@ -96,7 +96,7 @@ def parse_gtf_from_local(gtf_path: str) -> hl.dict:
                 continue
             gene_id_mapping[info_fields['gene_name']] = info_fields['gene_id'].split('.')[0]
 
-    logger.info(f'Completed ingestion of gene-ID mapping, {len(gene_id_mapping)} entries')
+    loguru.logger.info(f'Completed ingestion of gene-ID mapping, {len(gene_id_mapping)} entries')
 
     return [hl.literal(gene_id_mapping)]
 
@@ -115,21 +115,21 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
         checkpoint (str): location we can write checkpoints to
     """
 
-    init_batch()
+    hail_batch.init_batch()
 
-    logger.info(f'Importing SV VCF {vcf}')
+    loguru.logger.info(f'Importing SV VCF {vcf}')
     mt = hl.import_vcf(
         vcf,
         array_elements_required=False,
         force_bgz=True,
-        reference_genome=genome_build(),
+        reference_genome=hail_batch.genome_build(),
         skip_invalid_loci=True,
     )
 
     # add attributes required for Seqr
     mt = mt.annotate_globals(
         sourceFilePath=vcf,
-        genomeVersion=genome_build().replace('GRCh', ''),
+        genomeVersion=hail_batch.genome_build().replace('GRCh', ''),
         hail_version=hl.version(),
         datasetType='SV',
         sampleType='WES',
@@ -192,7 +192,7 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
     # overwrite symbols with ENSG IDs in these columns
     # not sure why this is required, I think SV annotation came out
     # with ENSGs from the jump, but this is all symbols
-    logger.info('Processing gene ID mapping chunk')
+    loguru.logger.info('Processing gene ID mapping chunk')
     for col_name in conseq_predicted_gene_cols:
         mt = mt.annotate_rows(
             info=mt.info.annotate(

@@ -1,19 +1,20 @@
 from typing import TYPE_CHECKING
 
+from cpg_utils import Path
+
 from cpg_gcnv.utils import postprocess_calls
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
 
 
 def postprocess_unclustered_calls(
-    ploidy_calls_path: 'Path',
-    shard_paths: 'dict[str, Path]',
+    ploidy_calls_path: Path,
+    shard_paths: dict[str, Path],
     sample_index: int,
     job_attrs: dict[str, str],
     output_prefix: str,
-) -> 'Job':
+) -> 'BashJob':
     """
 
     Args:
@@ -22,9 +23,6 @@ def postprocess_unclustered_calls(
         sample_index ():
         job_attrs ():
         output_prefix ():
-
-    Returns:
-
     """
 
     return postprocess_calls(

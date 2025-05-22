@@ -4,8 +4,8 @@ Hail Query functions for seqr loader; CNV edition.
 
 from argparse import ArgumentParser
 
-from cpg_utils.hail_batch import init_batch
-from loguru import logger
+from cpg_utils import hail_batch
+import loguru
 
 import hail as hl
 
@@ -19,9 +19,9 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
         mt_out (str): and where do you want it to end up?
     """
 
-    init_batch()
+    hail_batch.init_batch()
 
-    logger.info('Annotating genotypes')
+    loguru.logger.info('Annotating genotypes')
 
     mt = hl.read_matrix_table(mt_in)
 
@@ -106,10 +106,10 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
             ),
         ),
     )
-    logger.info('Genotype fields annotated')
+    loguru.logger.info('Genotype fields annotated')
     mt.describe()
     mt.write(mt_out, overwrite=True)
-    logger.info(f'Written gCNV MT to {mt_out}')
+    loguru.logger.info(f'Written gCNV MT to {mt_out}')
 
 
 def cli_main():

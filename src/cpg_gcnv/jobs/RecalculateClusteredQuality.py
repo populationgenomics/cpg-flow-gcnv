@@ -1,22 +1,23 @@
 from typing import TYPE_CHECKING
 
+from cpg_utils import Path
+
 from cpg_gcnv.utils import postprocess_calls
 
 if TYPE_CHECKING:
-    from cpg_utils import Path
-    from hailtop.batch.job import Job
+    from hailtop.batch.job import BashJob
 
 
 def recalculate_clustered_calls(
-    ploidy_calls_path: 'Path',
-    shard_paths: 'dict[str, Path]',
+    ploidy_calls_path: Path,
+    shard_paths: dict[str, Path],
     sample_index: int,
     job_attrs: dict[str, str],
     output_prefix: str,
     clustered_vcf: str,
     intervals_vcf: str,
     qc_file: str,
-) -> 'Job':
+) -> 'BashJob':
     """
 
     Args:
