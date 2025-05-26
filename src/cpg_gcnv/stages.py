@@ -366,7 +366,6 @@ class JointSegmentCnvVcfs(stage.CohortStage):
                 loguru.logger.info(f'Using XY-trimmed VCF for {sgid}')
                 all_vcfs.append(str(trimmed_vcfs[sgid]))
             elif sgid in cnv_vcfs:
-                loguru.logger.warning(f'Using standard VCF for {sgid}')
                 all_vcfs.append(str(cnv_vcfs[sgid]['segments']))
             else:
                 raise ValueError(f'No VCF found for {sgid}')
