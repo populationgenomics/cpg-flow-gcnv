@@ -22,7 +22,7 @@ def annotate_cnvs_with_strvctvre(
     job.memory(config.config_retrieve(['strvctvre_resources', 'memory'], '20Gi'))
     job.storage(config.config_retrieve(['strvctvre_resources', 'storage'], '20Gi'))
 
-    strvctvre_phylop = config.config_retrieve(['references', 'gatk_sv', 'strvctvre_phylop'])
+    strvctvre_phylop = config.config_retrieve(['annotate', 'strvctvre_phylop'])
     phylop_in_batch = hail_batch.get_batch().read_input(strvctvre_phylop)
 
     # read vcf and index into the batch
