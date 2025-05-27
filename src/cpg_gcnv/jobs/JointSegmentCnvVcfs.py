@@ -57,8 +57,8 @@ def joint_segment_vcfs(
 
 def run_joint_segmentation(
     segment_vcfs: list[str],
-    pedigree: Path,
-    intervals: Path,
+    pedigree: str,
+    intervals: str,
     tmp_prefix: Path,
     output_path: Path,
     job_attrs: dict[str, str] | None = None,

@@ -337,7 +337,6 @@ class JointSegmentCnvVcfs(stage.CohortStage):
         return {
             'clustered_vcf': cohort_prefix / 'JointClusteredSegments.vcf.gz',
             'clustered_vcf_idx': cohort_prefix / 'JointClusteredSegments.vcf.gz.tbi',
-            'pedigree': cohort_prefix / 'pedigree.ped',
         }
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -371,9 +370,9 @@ class JointSegmentCnvVcfs(stage.CohortStage):
                 raise ValueError(f'No VCF found for {sgid}')
 
         # get the intervals
-        intervals = inputs.as_path(workflow.get_multicohort(), PrepareIntervals, 'preprocessed')
+        intervals = inputs.as_str(workflow.get_multicohort(), PrepareIntervals, 'preprocessed')
 
-        pedigree = inputs.as_dict(cohort, UpgradePedWithInferred)['pedigree']
+        pedigree = inputs.as_str(cohort, UpgradePedWithInferred, 'pedigree')
 
         jobs = run_joint_segmentation(
             segment_vcfs=all_vcfs,
