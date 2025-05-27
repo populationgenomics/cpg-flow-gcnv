@@ -24,7 +24,7 @@ def prepare_intervals(
         'Prepare intervals',
         job_attrs | {'tool': 'gatk PreprocessIntervals/AnnotateIntervals'},
     )
-    job.image(hail_batch.image_path('gatk_gcnv'))
+    job.image(config.config_retrieve(['images', 'gatk_gcnv']))
 
     reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 

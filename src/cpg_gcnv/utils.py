@@ -99,7 +99,7 @@ def postprocess_calls(
     job_name = 'Postprocess gCNV calls with clustered VCF' if clustered_vcf else 'Postprocess gCNV calls'
 
     job = hail_batch.get_batch().new_bash_job(job_name, job_attrs | {'tool': 'gatk PostprocessGermlineCNVCalls'})
-    job.image(config.image_path('gatk_gcnv'))
+    job.image(config.config_retrieve(['images', 'gatk_gcnv']))
 
     # set highmem resources for this job
     job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=20)

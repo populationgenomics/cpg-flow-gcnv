@@ -28,7 +28,7 @@ def collect_read_counts(
     """
     labels = job_attrs | {'tool': 'gatk CollectReadCounts'}
     job = hail_batch.get_batch().new_bash_job('Collect gCNV read counts', labels)
-    job.image(config.image_path('gatk_gcnv'))
+    job.image(config.config_retrieve(['images', 'gatk_gcnv']))
 
     reference = hail_batch.fasta_res_group(hail_batch.get_batch())
 

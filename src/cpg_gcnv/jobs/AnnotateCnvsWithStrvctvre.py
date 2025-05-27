@@ -17,7 +17,7 @@ def annotate_cnvs_with_strvctvre(
 
     job = hail_batch.get_batch().new_job('StrVCTVRE', job_attrs)
 
-    job.image(config.image_path('strvctvre'))
+    job.image(config.config_retrieve(['images', 'strvctvre']))
     job.cpu(config.config_retrieve(['strvctvre_resources', 'cpu'], 2))
     job.memory(config.config_retrieve(['strvctvre_resources', 'memory'], '20Gi'))
     job.storage(config.config_retrieve(['strvctvre_resources', 'storage'], '20Gi'))

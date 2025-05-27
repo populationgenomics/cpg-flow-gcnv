@@ -36,7 +36,7 @@ def filter_and_determine_ploidy(
             'tool': 'gatk FilterIntervals/DetermineGermlineContigPloidy',
         },
     )
-    job.image(config.image_path('gatk_gcnv'))
+    job.image(config.config_retrieve(['images', 'gatk_gcnv']))
 
     # set highmem resources for this job
     job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=10)

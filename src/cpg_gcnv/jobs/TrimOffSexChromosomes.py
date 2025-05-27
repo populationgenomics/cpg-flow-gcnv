@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils import Path, hail_batch
+from cpg_utils import Path, hail_batch, config
 
 if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
@@ -35,7 +35,7 @@ def trim_sex_chromosomes(
             f'Remove sex chromosomes from {sgid}',
             attributes=job_attrs | {'tool': 'bcftools'},
         )
-        job.image(hail_batch.image_path('bcftools_120'))
+        job.image(config.config_retrieve(['images', 'bcftools_120']))
         job.declare_resource_group(output={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
         localised_vcf = hail_batch.get_batch().read_input_group(
             **{

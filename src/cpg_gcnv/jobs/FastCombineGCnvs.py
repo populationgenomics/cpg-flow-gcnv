@@ -27,7 +27,7 @@ def fast_merge_calls(
     """
 
     merge_job = hail_batch.get_batch().new_job('Merge gCNV calls', job_attrs | {'tool': 'bcftools'})
-    merge_job.image(hail_batch.image_path('bcftools_116'))
+    merge_job.image(config.config_retrieve(['images', 'bcftools_116']))
 
     # this should be made reactive, in case we scale past 10GB
     merge_job.storage('10Gi')
@@ -69,7 +69,7 @@ def fast_merge_calls(
 
     # a third job just to tidy up
     third_job = hail_batch.get_batch().new_job('bgzip and tabix')
-    third_job.image(hail_batch.image_path('bcftools_120'))
+    third_job.image(config.config_retrieve(['images', 'bcftools_120']))
     third_job.storage('10Gi')
     third_job.declare_resource_group(output={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
 

@@ -30,7 +30,7 @@ def joint_segment_vcfs(
     """
     job = hail_batch.get_batch().new_bash_job(f'Joint Segmentation {title}', job_attrs | {'tool': 'gatk'})
     job.declare_resource_group(output={'vcf.gz': '{root}.vcf.gz', 'vcf.gz.tbi': '{root}.vcf.gz.tbi'})
-    job.image(config.image_path('gatk_gcnv'))
+    job.image(config.config_retrieve(['images', 'gatk_gcnv']))
 
     # set highmem resources for this job
     job_res = resources.HIGHMEM.request_resources(ncpu=2, storage_gb=10)
