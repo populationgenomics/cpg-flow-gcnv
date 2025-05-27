@@ -81,7 +81,7 @@ def queue_annotate_sv_jobs(
         outputs_to_collect=outputs_to_collect,
         driver_image=config.config_retrieve(['workflow', 'driver_image']),
         copy_outputs_to_gcp=config.config_retrieve(['workflow', 'copy_outputs'], False),
-        labels={'stage': 'AnnotateCnvsWithSvAnnotate', config.AR_GUID_NAME: config.try_get_ar_guid()},
+        labels={'stage': 'annotatecnvswithsvannotate', config.AR_GUID_NAME: config.try_get_ar_guid()},
         min_watch_poll_interval=polling_minimum,
         max_watch_poll_interval=polling_maximum,
     )
