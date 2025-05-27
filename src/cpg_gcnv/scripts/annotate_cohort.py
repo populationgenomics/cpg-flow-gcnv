@@ -135,7 +135,10 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
     )
 
     # checkpoint the VCF as a MT
-    mt = mt.checkpoint(checkpoint)
+    mt = mt.checkpoint(
+        checkpoint,
+        overwrite=True,
+    )
 
     # reimplementation of
     # github.com/populationgenomics/seqr-loading-pipelines..luigi_pipeline/lib/model/gcnv_mt_schema.py
