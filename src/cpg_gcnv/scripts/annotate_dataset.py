@@ -41,11 +41,11 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
         ),
     )
 
-    def _genotype_filter_samples(fn) -> hl.set[str]:
+    def _genotype_filter_samples(fn) -> hl.set:
         # Filter on the genotypes.
         return hl.set(mt.genotypes.filter(fn).map(lambda g: g.sample_id))
 
-    def _genotype_filter_samples_cn2() -> hl.set[str]:
+    def _genotype_filter_samples_cn2() -> hl.set:
         # Filter on the genotypes.
         return hl.set(mt.genotypes.filter(lambda g: ((g.gt.is_haploid()) & (g.cn == 2))).map(lambda g: g.sample_id))  # noqa: PLR2004
 

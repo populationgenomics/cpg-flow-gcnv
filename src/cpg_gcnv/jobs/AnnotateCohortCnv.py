@@ -24,6 +24,6 @@ def submit_annotate_cohort_job(
         --checkpoint {checkpoint!s} \
         --vcf {input_vcf} \
         --gencode {gencode_gtf_local!s}
-        """
+        """,
     )
     return job
