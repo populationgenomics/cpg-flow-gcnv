@@ -5,10 +5,9 @@ Hail Query functions for seqr loader; CNV edition.
 import datetime
 import gzip
 from argparse import ArgumentParser
-from os.path import join
 
-from cpg_utils import hail_batch
 import loguru
+from cpg_utils import hail_batch
 
 import hail as hl
 

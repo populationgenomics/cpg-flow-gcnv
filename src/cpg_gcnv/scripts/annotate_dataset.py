@@ -4,8 +4,8 @@ Hail Query functions for seqr loader; CNV edition.
 
 from argparse import ArgumentParser
 
-from cpg_utils import hail_batch
 import loguru
+from cpg_utils import hail_batch
 
 import hail as hl
 

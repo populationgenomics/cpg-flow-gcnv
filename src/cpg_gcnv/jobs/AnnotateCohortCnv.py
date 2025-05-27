@@ -1,4 +1,4 @@
-from cpg_utils import config, hail_batch, Path
+from cpg_utils import Path, config, hail_batch
 
 from cpg_gcnv.scripts import annotate_cohort
 
