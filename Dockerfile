@@ -1,4 +1,4 @@
-FROM australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_hail:0.2.134.cpg1 AS basic
+FROM australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_hail_gcloud:0.2.134.cpg1 AS basic
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
