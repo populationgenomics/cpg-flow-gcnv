@@ -41,6 +41,8 @@ gatk_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:202
 gatk_gcnv = 'australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:4.2.6.1-57-g9e03432'
 sv_base_mini_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/sv-base-mini:5994670"
 sv_pipeline_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images-dev/gatk-sv_issue_661:n_a"
+bcftools_116 = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools:1.16"
+bcftools_120 = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools_120:1.20"
 
 [references.gatk_sv]
 # a couple of annotation arguments are not files

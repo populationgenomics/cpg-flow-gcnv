@@ -98,7 +98,7 @@ def parse_gtf_from_local(gtf_path: str) -> hl.dict:
 
     loguru.logger.info(f'Completed ingestion of gene-ID mapping, {len(gene_id_mapping)} entries')
 
-    return [hl.literal(gene_id_mapping)]
+    return hl.literal(gene_id_mapping)
 
 
 def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
@@ -134,6 +134,9 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
         datasetType='SV',
         sampleType='WES',
     )
+
+    # checkpoint the VCF as a MT
+    mt = mt.checkpoint(checkpoint)
 
     # reimplementation of
     # github.com/populationgenomics/seqr-loading-pipelines..luigi_pipeline/lib/model/gcnv_mt_schema.py
@@ -179,12 +182,6 @@ def annotate_cohort_gcnv(vcf: str, mt_out: str, gencode: str, checkpoint: str):
             ),
         ),
     )
-
-    mt = mt.checkpoint(join(checkpoint, 'pre-gene_annotation.mt'))
-
-    # this next section is currently failing - the dictionary of genes is too large
-    # to be used in an annotation expression. At least... I think it is
-    # for i, chunks in enumerate(chunks(gene_id_mapping, 100)):
 
     # get the Gene-Symbol mapping dict
     gene_id_mapping = parse_gtf_from_local(gencode)

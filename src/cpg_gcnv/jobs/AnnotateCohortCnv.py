@@ -1,4 +1,4 @@
-from cpg_utils import config, hail_batch
+from cpg_utils import config, hail_batch, Path
 
 from cpg_gcnv.scripts import annotate_cohort
 
@@ -6,7 +6,7 @@ from cpg_gcnv.scripts import annotate_cohort
 def submit_annotate_cohort_job(
     input_vcf: str,
     output_mt: str,
-    checkpoint: str,
+    checkpoint: Path,
     attributes: dict[str, str],
 ):
     """

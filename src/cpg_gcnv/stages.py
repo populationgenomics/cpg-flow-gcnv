@@ -592,7 +592,7 @@ class AnnotateCohortCnv(stage.MultiCohortStage):
         job = submit_annotate_cohort_job(
             input_vcf=vcf_path,
             output_mt=output,
-            checkpoint=self.tmp_prefix / 'checkpoints',
+            checkpoint=self.tmp_prefix / 'checkpoint.mt',
             attributes=self.get_job_attrs(multicohort),
         )
 

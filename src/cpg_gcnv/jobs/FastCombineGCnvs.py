@@ -27,7 +27,7 @@ def fast_merge_calls(
     """
 
     merge_job = hail_batch.get_batch().new_job('Merge gCNV calls', job_attrs | {'tool': 'bcftools'})
-    merge_job.image(hail_batch.image_path('bcftools_120'))
+    merge_job.image(hail_batch.image_path('bcftools_116'))
 
     # this should be made reactive, in case we scale past 10GB
     merge_job.storage('10Gi')
