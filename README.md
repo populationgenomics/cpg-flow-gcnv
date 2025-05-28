@@ -2,7 +2,7 @@
 A template repository to use as a base for CPG workflows using the cpg-flow pipeline framework
 
 
-Current Version: 0.1.0
+Current Version: 0.1.1
 
 ## Purpose
 
