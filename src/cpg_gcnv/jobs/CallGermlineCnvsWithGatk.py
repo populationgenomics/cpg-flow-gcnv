@@ -47,12 +47,12 @@ def shard_gcnv(
 
         {select_cmd} < {filtered_intervals} > job.shard.interval_list
 
-        gatk \
-          --java-options "{job_res.java_mem_options()}" GermlineCNVCaller \
-          --run-mode COHORT --interval-merging-rule OVERLAPPING_ONLY \
-          --intervals job.shard.interval_list --annotated-intervals {annotated_intervals} \
-          {counts_input} \
-          --contig-ploidy-calls $BATCH_TMPDIR/ploidy-calls \
+        gatk \\
+          --java-options "{job_res.java_mem_options()}" GermlineCNVCaller \\
+          --run-mode COHORT --interval-merging-rule OVERLAPPING_ONLY \\
+          --intervals job.shard.interval_list --annotated-intervals {annotated_intervals} \\
+          {counts_input} \\
+          --contig-ploidy-calls $BATCH_TMPDIR/ploidy-calls \\
           --output $BATCH_TMPDIR --output-prefix {name}
 
         tar -czf {job.shard_tarball} -C $BATCH_TMPDIR {name}-calls {name}-model {name}-tracking

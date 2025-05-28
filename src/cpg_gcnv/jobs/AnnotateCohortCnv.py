@@ -19,10 +19,10 @@ def submit_annotate_cohort_job(
 
     job.command(
         f"""
-        python3 -m cpg_gcnv.scripts.annotate_cohort \
-        --mt_out {output_mt} \
-        --checkpoint {checkpoint!s} \
-        --vcf {input_vcf} \
+        python3 -m cpg_gcnv.scripts.annotate_cohort \\
+        --mt_out {output_mt} \\
+        --checkpoint {checkpoint!s} \\
+        --vcf {input_vcf} \\
         --gencode {gencode_gtf_local!s}
         """,
     )

@@ -61,14 +61,14 @@ def filter_and_determine_ploidy(
     ploidy_priors = hail_batch.get_batch().read_input(ploidy_priors_path)
 
     job.command(f"""
-    gatk \
-        --java-options "{job_res.java_mem_options()}" \
-        DetermineGermlineContigPloidy \
-        --interval-merging-rule OVERLAPPING_ONLY \
-        --intervals {job.filtered} \
-        --contig-ploidy-priors {ploidy_priors} \
-        {counts_input_args} \
-        --output $BATCH_TMPDIR \
+    gatk \\
+        --java-options "{job_res.java_mem_options()}" \\
+        DetermineGermlineContigPloidy \\
+        --interval-merging-rule OVERLAPPING_ONLY \\
+        --intervals {job.filtered} \\
+        --contig-ploidy-priors {ploidy_priors} \\
+        {counts_input_args} \\
+        --output $BATCH_TMPDIR \\
         --output-prefix ploidy
 
     tar -czf {job.calls} -C $BATCH_TMPDIR ploidy-calls

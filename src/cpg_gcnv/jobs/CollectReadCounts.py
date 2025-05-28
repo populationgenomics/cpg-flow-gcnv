@@ -47,14 +47,14 @@ def collect_read_counts(
     job.cpu(2).storage('10Gi').memory('highmem')
 
     job.command(f"""
-    gatk --java-options "{job_res.java_mem_options()}" \
-        CollectReadCounts \
-        --reference {reference.base} \
-        --intervals {intervals_path} \
-        --interval-merging-rule OVERLAPPING_ONLY \
-        --input {cram_path.path} \
-        --read-index {cram_path.index_path} \
-        --format TSV \
+    gatk --java-options "{job_res.java_mem_options()}" \\
+        CollectReadCounts \\
+        --reference {reference.base} \\
+        --intervals {intervals_path} \\
+        --interval-merging-rule OVERLAPPING_ONLY \\
+        --input {cram_path.path} \\
+        --read-index {cram_path.index_path} \\
+        --format TSV \\
         --output {job.counts}.counts.tsv
         """)
 

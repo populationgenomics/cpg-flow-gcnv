@@ -44,20 +44,20 @@ def prepare_intervals(
     job.preprocessed.add_extension('.interval_list')
 
     job.command(f"""
-    gatk PreprocessIntervals \
-        --reference {reference.base} \
-        --intervals {intervals} \
-        {exclude_intervals_args} \
-        --padding 250 \
-        --bin-length 0 \
-        --interval-merging-rule OVERLAPPING_ONLY \
+    gatk PreprocessIntervals \\
+        --reference {reference.base} \\
+        --intervals {intervals} \\
+        {exclude_intervals_args} \\
+        --padding 250 \\
+        --bin-length 0 \\
+        --interval-merging-rule OVERLAPPING_ONLY \\
         --output {job.preprocessed}
     """)
     job.command(f"""
-    gatk AnnotateIntervals \
-        --reference {reference.base} \
-        --intervals {job.preprocessed} \
-        --interval-merging-rule OVERLAPPING_ONLY \
+    gatk AnnotateIntervals \\
+        --reference {reference.base} \\
+        --intervals {job.preprocessed} \\
+        --interval-merging-rule OVERLAPPING_ONLY \\
         --output {job.annotated}
     """)
 
