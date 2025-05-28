@@ -3,9 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-# TODO(you): update this to reflect the project's name & description
 name='cpg_gcnv'
-description='Template workflow'
+description='CPG-Flow implementation of the GCNV workflow'
 readme = "README.md"
 # currently cpg-flow is pinned to this version
 requires-python = ">=3.10,<3.11"
@@ -25,15 +24,14 @@ dependencies=[
     "cpg-flow==0.2.4",
     "cpg-utils>=5.3.0",
     "elasticsearch>=9.0.1",
-    "google-auth>=2.38.0",
+    "google-auth>=2.40.2",
     "hatchling>=1.27.0",
     "loguru>=0.7.3",
-    "ruff>=0.11.0",
+    "ruff>=0.11.11",
 ]
 
 [project.urls]
-# TODO(you): update this to reflect the project's official homepage
-Repository = "https://github.com/populationgenomics/workflow_name"
+Repository = "https://github.com/populationgenomic/cpg-flow-gcnv"
 
 [project.optional-dependencies]
 # various requirements when running cpg-flow/analysis-runner
@@ -47,6 +45,12 @@ test = [
 # the workflow runner script - entrypoint for the pipeline
 run_workflow = 'cpg_gcnv.run_workflow:cli_main'
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/cpg_gcnv"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
@@ -54,7 +58,7 @@ package-dir = {"" = "src"}
 include_package_data = true
 
 [options.package_data]
-'workflow_name'=  ['config_template.toml']
+'cpg_gcnv'=  ['config_template.toml']
 
 [tool.black]
 line-length = 120
