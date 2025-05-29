@@ -9,7 +9,7 @@ Current Version: 0.1.1
 When migrating workflows from production-pipelines, this template respository structure can be used to start with a
 sensible directory structure, and some suggested conventions for naming and placement of files.
 
-```commandline
+```txt
 src
 ├── cpg_gcnv
 │   ├── __init__.py
