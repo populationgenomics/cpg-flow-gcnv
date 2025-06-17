@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+
 from cpg_utils import Path, config, hail_batch
 
 if TYPE_CHECKING:
@@ -10,7 +11,7 @@ def submit_annotate_cohort_job(
     output_mt: str,
     checkpoint: Path,
     attributes: dict[str, str],
-) -> BashJob:
+) -> 'BashJob':
     """Submit a job to annotate a cohort with GATK SV."""
     batch_instance = hail_batch.get_batch()
 
