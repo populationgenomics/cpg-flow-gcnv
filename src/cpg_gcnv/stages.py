@@ -23,6 +23,7 @@ from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_c
 from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_calls
 from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
 from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
+from cpg_gcnv.jobs.SplitAnnotatedVcfByDataset import split_mc_vcf_by_dataset
 from cpg_gcnv.utils import shard_items
 
 
@@ -568,6 +569,38 @@ class AnnotateCnvsWithStrvctvre(stage.MultiCohortStage):
         )
 
         return self.make_outputs(multicohort, data=output, jobs=job)
+
+
+@stage.stage(required_stages=AnnotateCnvsWithStrvctvre, analysis_type='single_dataset_cnv_annotated')
+class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
+    """
+    takes the whole MultiCohort annotated VCF
+    splits it up into separate VCFs for each dataset
+    """
+
+    def expected_outputs(self, dataset: targets.dataset) -> Path:
+        return (
+            dataset.prefix()
+            / workflow.get_workflow().name
+            / workflow.get_workflow().output_version
+            / self.name
+            / 'annotated_cnv.vcf.bgz'
+        )
+
+    def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
+        output = self.expected_outputs(dataset)
+        input_vcf = hail_batch.get_batch().read_input(
+            inputs.as_path(workflow.get_multicohort(), AnnotateCnvsWithStrvctvre)
+        )
+
+        job = split_mc_vcf_by_dataset(
+            input_vcf=input_vcf,
+            dataset=dataset,
+            output=str(output),
+            job_attrs=self.get_job_attrs(dataset),
+        )
+
+        return self.make_outputs(dataset, data=output, jobs=job)
 
 
 @stage.stage(required_stages=AnnotateCnvsWithStrvctvre, analysis_type='cnv')

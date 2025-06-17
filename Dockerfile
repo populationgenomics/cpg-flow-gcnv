@@ -2,7 +2,6 @@ FROM australia-southeast1-docker.pkg.dev/cpg-common/images/cpg_hail_gcloud:0.2.1
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# now do some fun stuff, installing ClinvArbitration
 WORKDIR /cpg_flow_gcnv
 
 COPY src src/
