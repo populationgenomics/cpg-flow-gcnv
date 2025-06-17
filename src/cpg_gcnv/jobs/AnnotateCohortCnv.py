@@ -1,4 +1,8 @@
+from typing import TYPE_CHECKING
 from cpg_utils import Path, config, hail_batch
+
+if TYPE_CHECKING:
+    from hailtop.batch.job import BashJob
 
 
 def submit_annotate_cohort_job(
@@ -6,16 +10,15 @@ def submit_annotate_cohort_job(
     output_mt: str,
     checkpoint: Path,
     attributes: dict[str, str],
-):
-    """
-    Submit a job to annotate a cohort with GATK SV
-    """
+) -> BashJob:
+    """Submit a job to annotate a cohort with GATK SV."""
+    batch_instance = hail_batch.get_batch()
 
-    job = hail_batch.get_batch().new_job('AnnotateCohort gCNV multicohort', attributes)
+    job = batch_instance.new_job('AnnotateCohort gCNV multicohort', attributes)
     job.image(config.config_retrieve(['workflow', 'driver_image']))
 
     gencode_gz = config.config_retrieve(['annotate', 'gencode_gtf_file'])
-    gencode_gtf_local = hail_batch.get_batch().read_input(gencode_gz)
+    gencode_gtf_local = batch_instance.read_input(gencode_gz)
 
     job.command(
         f"""

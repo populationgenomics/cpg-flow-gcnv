@@ -10,7 +10,8 @@ if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
 
 
-GATK_SV_COMMIT = 'dc145a52f76a6f425ac3f481171040e78c0cfeea'
+# add flexibility to override the GATK-SV commit
+GATK_SV_COMMIT = config.config_retrieve(['workflow', 'gatk_sv_commit'], 'dc145a52f76a6f425ac3f481171040e78c0cfeea')
 ANNOTATION_WORKFLOW = 'AnnotateVcf'
 
 
@@ -21,7 +22,7 @@ def queue_annotate_sv_jobs(
     outputs: dict[str, Path],
 ) -> 'list[BashJob]':
     """
-    Create an Annotation job in the Cromwell workflow engine
+    Create an Annotation job in the Cromwell workflow engine.
     """
 
     input_dict: dict = {
@@ -60,12 +61,10 @@ def queue_annotate_sv_jobs(
     # pre-process input_dict
     paths_as_strings: dict = {}
     for key, value in input_dict.items():
-        if isinstance(value, Path):
-            paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = str(value)
-        elif isinstance(value, list | set):
+        if isinstance(value, list | set):
             paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = [str(v) for v in value]
         else:
-            paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = value
+            paths_as_strings[f'{ANNOTATION_WORKFLOW}.{key}'] = str(value)
 
     submit_j, output_dict = cromwell.run_cromwell_workflow_from_repo_and_get_outputs(
         b=hail_batch.get_batch(),

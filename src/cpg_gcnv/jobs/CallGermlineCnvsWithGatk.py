@@ -18,9 +18,10 @@ def shard_gcnv(
     job_attrs: dict[str, str],
     output_paths: dict[str, Path],
 ) -> 'list[Job]':
-    annotated_intervals = hail_batch.get_batch().read_input(annotated_intervals_path)
-    filtered_intervals = hail_batch.get_batch().read_input(filtered_intervals_path)
-    ploidy_calls_tarball = hail_batch.get_batch().read_input(ploidy_calls_path)
+    batch_instance = hail_batch.get_batch()
+    annotated_intervals = batch_instance.read_input(annotated_intervals_path)
+    filtered_intervals = batch_instance.read_input(filtered_intervals_path)
+    ploidy_calls_tarball = batch_instance.read_input(ploidy_calls_path)
     counts_input = counts_input_args(counts_paths)
 
     jobs: list[Job] = []
@@ -29,7 +30,7 @@ def shard_gcnv(
         if cpg_utils.can_reuse(output_paths[name]):
             continue
 
-        job = hail_batch.get_batch().new_job(
+        job = batch_instance.new_job(
             f'Call germline CNVs shard {i} of {n}',
             job_attrs
             | {
@@ -57,7 +58,7 @@ def shard_gcnv(
 
         tar -czf {job.shard_tarball} -C $BATCH_TMPDIR {name}-calls {name}-model {name}-tracking
         """)
-        hail_batch.get_batch().write_output(job.shard_tarball, output_paths[name])
+        batch_instance.write_output(job.shard_tarball, output_paths[name])
         jobs.append(job)
 
     return jobs

@@ -11,11 +11,11 @@ def annotate_cnvs_with_strvctvre(
     output_vcf: str,
     job_attrs: dict[str, str],
 ) -> 'BashJob':
-    """
-    Annotate CNVs with STRVCTRE
-    """
+    """Annotate CNVs with STRVCTRE."""
 
-    job = hail_batch.get_batch().new_job('StrVCTVRE', job_attrs)
+    batch_instance = hail_batch.get_batch()
+
+    job = batch_instance.new_job('StrVCTVRE', job_attrs)
 
     job.image(config.config_retrieve(['images', 'strvctvre']))
     job.cpu(config.config_retrieve(['strvctvre_resources', 'cpu'], 2))
@@ -23,10 +23,10 @@ def annotate_cnvs_with_strvctvre(
     job.storage(config.config_retrieve(['strvctvre_resources', 'storage'], '20Gi'))
 
     strvctvre_phylop = config.config_retrieve(['annotate', 'strvctvre_phylop'])
-    phylop_in_batch = hail_batch.get_batch().read_input(strvctvre_phylop)
+    phylop_in_batch = batch_instance.read_input(strvctvre_phylop)
 
     # read vcf and index into the batch
-    input_vcf = hail_batch.get_batch().read_input_group(
+    input_vcf = batch_instance.read_input_group(
         vcf=input_vcf,
         vcf_index=f'{input_vcf}.tbi',
     )['vcf']
@@ -38,7 +38,7 @@ def annotate_cnvs_with_strvctvre(
     job.command(f'bgzip temp.vcf -c > {job.output_vcf["vcf.bgz"]}')
     job.command(f'tabix {job.output_vcf["vcf.bgz"]}')
 
-    hail_batch.get_batch().write_output(
+    batch_instance.write_output(
         job.output_vcf,
         output_vcf.replace('.vcf.bgz', ''),
     )
