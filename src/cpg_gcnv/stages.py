@@ -21,9 +21,9 @@ from cpg_gcnv.jobs.MtToEsCnv import submit_es_job_for_dataset
 from cpg_gcnv.jobs.PrepareIntervals import prepare_intervals
 from cpg_gcnv.jobs.ProcessCohortCnvCallsToSgVcf import postprocess_unclustered_calls
 from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_calls
+from cpg_gcnv.jobs.SplitAnnotatedVcfByDataset import split_mc_vcf_by_dataset
 from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
 from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
-from cpg_gcnv.jobs.SplitAnnotatedVcfByDataset import split_mc_vcf_by_dataset
 from cpg_gcnv.utils import shard_items
 
 
@@ -590,7 +590,7 @@ class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
     def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
         output = self.expected_outputs(dataset)
         input_vcf = hail_batch.get_batch().read_input(
-            inputs.as_path(workflow.get_multicohort(), AnnotateCnvsWithStrvctvre)
+            inputs.as_path(workflow.get_multicohort(), AnnotateCnvsWithStrvctvre),
         )
 
         job = split_mc_vcf_by_dataset(
