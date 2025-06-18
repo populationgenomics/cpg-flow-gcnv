@@ -1,32 +1,51 @@
-# cpg-flow-pipeline-template
-A template repository to use as a base for CPG workflows using the cpg-flow pipeline framework
+# gCNV, Using CPG-Flow
+
+This is the gCNV workflow, migrated from [Production-Pipelines](https://github.com/populationgenomics/production-pipelines/blob/main/cpg_workflows/stages/gcnv.py) to the CPG-Flow framework.
+
+Current Version: 0.1.1
 
 ## Purpose
 
 When migrating workflows from production-pipelines, this template respository structure can be used to start with a
 sensible directory structure, and some suggested conventions for naming and placement of files.
 
-```commandline
+```txt
 src
-├── workflow_name
+├── cpg_gcnv
 │   ├── __init__.py
 │   ├── config_template.toml
 │   ├── jobs
-│   │   └── LogicForAStage.py
-│   ├── main.py
+│   │   ├── AnnotateCnvsWithStrvctvre.py
+│   │   ├── AnnotateCnvsWithSvAnnotate.py
+│   │   ├── AnnotateCohortCnv.py
+│   │   ├── ...
+│   ├── run_workflow.py
+│   ├── scripts
+│   │   ├── __init__.py
+│   │   ├── annotate_cohort.py
+│   │   ├── annotate_dataset.py
+│   │   ├── mt_to_es.py
+│   │   ├── ...
 │   ├── stages.py
 │   └── utils.py
 ```
 
-`workflow_name` occurs in a number of places ([pyproject.toml](pyproject.toml), [src](src), and the workflow name in the
-template config file). It is intended that you remove this generic placeholder name, and replace it with the name of
-your workflow.
-
 `stages.py` contains Stages in the workflow, with the actual logic imported from files in `jobs`.
 
-`stages.py` also links to the Pipeline Naming Conventions document, containing a number of recommendations for naming
-Stages and other elements of the workflow.
+`jobs/` is a folder containing the logic for each of the Stages in the workflow. Each file contains a single Stage, and has a name mirroring the Stage it contains. This implements all the logic for a stage, including assembling the input dictionary to be passed to Cromwell and scheduling any Batch Jobs.
 
-`config_template.toml` is a template, indicating the settings which are mandatory for the pipeline to run. In
-production-pipelines, many of these settings were satisfied by the cpg-workflows or per-workflow default TOML files. If
-a pipeline is being migrated from production-pipelines, the previous default config TOML would be a better substitute.
+`config_template.toml` is a base config, indicating settings which are mandatory for the pipeline to run. Actual workflow configs should inherit from this, and can add additional settings as required (e.g. dataset, cohort, updated image paths)
+
+Example Analysis-Runner invocation:
+
+```bash
+analysis-runner \
+    --skip-repo-checkout \
+    --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg-flow-gcnv:0.1.1 \
+    --dataset DATASET \
+    --description 'gCNV, CPG-flow' \
+    -o gCNV_cpg-flow \
+    --access-level full \
+    --config CONFIG \
+    run_workflow
+```

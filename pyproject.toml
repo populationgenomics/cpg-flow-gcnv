@@ -1,15 +1,14 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-# TODO(you): update this to reflect the project's name & description
-name='workflow_name'
-description='Template workflow'
+name='cpg_gcnv'
+description='CPG-Flow implementation of the GCNV workflow'
 readme = "README.md"
 # currently cpg-flow is pinned to this version
 requires-python = ">=3.10,<3.11"
-version='0.1.0'
+version="0.1.1"
 license={ "file" = "LICENSE" }
 classifiers=[
     'Environment :: Console',
@@ -22,35 +21,35 @@ classifiers=[
 ]
 
 dependencies=[
-    'cpg-flow>=v0.1.2',
+    "cpg-flow==0.2.4",
+    "cpg-utils>=5.3.0",
+    "elasticsearch>=9.0.1",
+    "google-auth>=2.40.2",
+    "hatchling>=1.27.0",
+    "loguru>=0.7.3",
+    "ruff>=0.11.11",
 ]
 
 [project.urls]
-# TODO(you): update this to reflect the project's official homepage
-Repository = "https://github.com/populationgenomics/workflow_name"
+Repository = "https://github.com/populationgenomic/cpg-flow-gcnv"
 
 [project.optional-dependencies]
 # various requirements when running cpg-flow/analysis-runner
-cpg = [
-    'cpg-flow>=v0.1.2',
-]
 test = [
-    'bump2version',
+    'bump-my-version',
     'pre-commit',
     'pytest',
 ]
 
 [project.scripts]
-# home for any scripts which will be installed
-# e.g. this minimal "Hello, World!" script which can be run by alias when this package is installed
-# $ say_hello
-# >> Hello, World!
-# $ say_hello cpg-flow
-# >> Hello, cpg-flow!
-say_hello = 'workflow_name.scripts.hello_world:cli_main'
-
 # the workflow runner script - entrypoint for the pipeline
-run_workflow = 'workflow_name.run_workflow:cli_main'
+run_workflow = 'cpg_gcnv.run_workflow:cli_main'
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cpg_gcnv"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -59,7 +58,7 @@ package-dir = {"" = "src"}
 include_package_data = true
 
 [options.package_data]
-'workflow_name'=  ['config_template.toml']
+'cpg_gcnv'=  ['config_template.toml']
 
 [tool.black]
 line-length = 120
@@ -86,11 +85,13 @@ extend-exclude = ["venv", ".mypy_cache", ".venv", "build", "dist"]
 
 [tool.ruff.format]
 indent-style = 'space'
-quote-style = "single"
+quote-style = 'single'
 
 [tool.ruff.lint]
 # ignore pydocstyle, flake8-boolean-trap (FBT)
 select = ["A", "B", "C", "E", "F", "G", "I", "N", "Q", "S", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "ERA", "EXE", "ICN", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "UP", "YTT"]
+
+extend-select = ["I"]
 
 fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "ERA", "EXE", "FBT", "ICN", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "UP", "YTT"]
 
@@ -101,18 +102,48 @@ ignore = [
     "ANN201", # Missing return type annotation for public function
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
     "ANN204", # Missing type annotation for special method `__init__`
-    "COM812", # Trailing comma prohibited
+    "COM819", # Trailing comma prohibited
     "E731", # Do not assign a lambda expression, use a def
-    "G004", # Logging statement uses f-string
     "PLW0603", # Using the global statement to update `<VAR>` is discouraged
     "Q000", # Single quotes found but double quotes preferred
-    "S101", # Use of assert detected
     "PLR0912", # Too many branches (> 12)
     "PLR0913", # Too many arguments in function (> 5)
     "C901", # method is too complex (> 10 conditions)
-    "N999", # invalid module name (not lower-case and potholes)
-    "I001", # Import block is un-sorted or un-formatted (to remove soon)
+    "Q003",
 ]
 
+
 [tool.ruff.lint.isort]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+section-order = ["future", "standard-library", "third-party", "hail", "cpg", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+cpg = ["metamist", "talos"]
+hail = ["hail"]
+
+[tool.ruff.lint.per-file-ignores]
+# suppress the ARG002 "Unused method argument" warning in the stages.py file
+## - we don't need generic cpg-flow arguments for every Stage, but need to fit the required method signature
+"src/cpg_gcnv/stages.py" = ["ARG002"]
+
+[tool.bumpversion]
+current_version = "0.1.1"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+commit_args = ""
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version='{current_version}'"
+replace = "version='{new_version}'"
+
+[[tool.bumpversion.files]]
+filename = ".github/workflows/docker.yaml"
+search = "VERSION: {current_version}"
+replace = "VERSION: {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "{current_version}"
+replace = "{new_version}"
