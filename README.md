@@ -2,7 +2,7 @@
 
 This is the gCNV workflow, migrated from [Production-Pipelines](https://github.com/populationgenomics/production-pipelines/blob/main/cpg_workflows/stages/gcnv.py) to the CPG-Flow framework.
 
-Current Version: 0.1.1
+Current Version: 0.1.2
 
 ## Purpose
 
@@ -41,7 +41,7 @@ Example Analysis-Runner invocation:
 ```bash
 analysis-runner \
     --skip-repo-checkout \
-    --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg-flow-gcnv:0.1.1 \
+    --image australia-southeast1-docker.pkg.dev/cpg-common/images/cpg-flow-gcnv:0.1.2 \
     --dataset DATASET \
     --description 'gCNV, CPG-flow' \
     -o gCNV_cpg-flow \
