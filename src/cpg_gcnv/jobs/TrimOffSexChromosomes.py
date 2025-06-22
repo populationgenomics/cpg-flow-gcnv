@@ -12,14 +12,10 @@ def trim_sex_chromosomes(
     job_attrs: dict[str, str],
 ) -> 'list[BashJob]':
     """
-
-    Args:
-        sgid_to_output ():
-        segment_vcfs ():
-        job_attrs ():
-
-    Returns:
-
+    Read in a VCF, and remove all calls on X & Y.
+    Relatively short-term solution to an ongoing gCNV issue, where gCNV's joint segmentation algorithm has been falsely
+    detecting aneuploidies based on the inferred counts, and causing a halt to the workflow.
+    An unresolved issue has been raised here https://github.com/broadinstitute/gatk/issues/8834
     """
     jobs = []
 
