@@ -260,6 +260,8 @@ class TrimOffSexChromosomes(stage.CohortStage):
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path | str]:
         cohort_prefix = self.get_stage_cohort_prefix(cohort)
 
+        sgids_in_this_cohort = cohort.get_sequencing_group_ids()
+
         # returning an empty dictionary might cause the pipeline setup to break?
         # returning a string won't cause an existince check on this file, but will trick the pipeline into running?
         return_dict: dict[str, Path | str] = {
@@ -285,13 +287,14 @@ class TrimOffSexChromosomes(stage.CohortStage):
                     sgid = line.strip()
 
                     # could be an empty newline
-                    if not sgid:
+                    if not sgid or sgid not in sgids_in_this_cohort:
                         continue
 
                     aneuploid_samples.append(sgid)
 
-        # log an expected output
         for sgid in set(aneuploid_samples):
+            if sgid not in sgids_in_this_cohort:
+                continue
             return_dict[sgid] = cohort_prefix / f'{sgid}.segments.vcf.bgz'
 
         if len(return_dict) > 1:
