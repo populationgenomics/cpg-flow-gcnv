@@ -43,7 +43,7 @@ def trim_sex_chromosomes(
         job.command('set -euo pipefail')
 
         job.command(f'bcftools view -W=tbi -Oz -o {job.output["vcf.bgz"]} {localised_vcf} {autosomes}')
-        hail_batch.get_batch().write_output(job.output, no_xy_vcf.removesuffix('.vcf.bgz'))
+        hail_batch.get_batch().write_output(job.output, str(no_xy_vcf).removesuffix('.vcf.bgz'))
         jobs.append(job)
 
     return jobs
