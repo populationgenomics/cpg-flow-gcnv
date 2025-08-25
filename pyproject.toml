@@ -23,7 +23,7 @@ classifiers=[
 dependencies=[
     'cpg-flow==0.2.4',
     'cpg-utils>=5.3.0',
-    'elasticsearch>=9.0.1',
+    'elasticsearch==8.*',
     'google-auth>=2.40.2',
     'hatchling>=1.27.0',
     'loguru>=0.7.3',
