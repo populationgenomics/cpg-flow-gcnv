@@ -174,7 +174,7 @@ class UpgradePedWithInferred(stage.CohortStage):
 
 
 @stage.stage(required_stages=[PrepareIntervals, CollectReadCounts, DeterminePloidy])
-class CallGermlineCnvsWithGatk(stage.CohortStage):
+class GermlineCNV(stage.CohortStage):
     """
     The cohort-wide GermlineCNVCaller step, sharded across genome regions.
     This is separate from the DeterminePloidy stage so that the ProcessCohortCnvCallsToSgVcf
@@ -183,7 +183,7 @@ class CallGermlineCnvsWithGatk(stage.CohortStage):
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
         wf = workflow.get_workflow()
-        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / 'GermlineCNV'
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
         return {name: prefix / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -208,8 +208,8 @@ class CallGermlineCnvsWithGatk(stage.CohortStage):
         return self.make_outputs(cohort, data=outputs, jobs=jobs)
 
 
-@stage.stage(required_stages=[DeterminePloidy, CallGermlineCnvsWithGatk])
-class ProcessCohortCnvCallsToSgVcf(stage.SequencingGroupStage):
+@stage.stage(required_stages=[DeterminePloidy, GermlineCNV])
+class GermlineCNVCalls(stage.SequencingGroupStage):
     """
     Produces final individual VCF results by running PostprocessGermlineCNVCalls.
     """
@@ -223,7 +223,7 @@ class ProcessCohortCnvCallsToSgVcf(stage.SequencingGroupStage):
         this_cohort: targets.Cohort = get_cohort_for_sgid(seqgroup.id)
 
         wf = workflow.get_workflow()
-        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / this_cohort.id / 'GermlineCNVCalls'
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / this_cohort.id / self.name
         return {
             'intervals': prefix / f'{seqgroup.id}.intervals.vcf.gz',
             'intervals_index': prefix / f'{seqgroup.id}.intervals.vcf.gz.tbi',
@@ -245,7 +245,7 @@ class ProcessCohortCnvCallsToSgVcf(stage.SequencingGroupStage):
 
         jobs = postprocess_unclustered_calls(
             ploidy_calls_path=determine_ploidy['calls'],
-            shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
+            shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
             sample_index=sgid_ordering.index(seqgroup.id),
             job_attrs=self.get_job_attrs(seqgroup),
             output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / seqgroup.id),
@@ -253,7 +253,7 @@ class ProcessCohortCnvCallsToSgVcf(stage.SequencingGroupStage):
         return self.make_outputs(seqgroup, data=outputs, jobs=jobs)
 
 
-@stage.stage(required_stages=[ProcessCohortCnvCallsToSgVcf, UpgradePedWithInferred])
+@stage.stage(required_stages=[GermlineCNVCalls, UpgradePedWithInferred])
 class TrimOffSexChromosomes(stage.CohortStage):
     """
     Trim off sex chromosomes for gCNV VCFs where the SGID is detected to be Aneuploid
@@ -315,7 +315,7 @@ class TrimOffSexChromosomes(stage.CohortStage):
         Plan to generate every file, so that the stage can be forced to re-run if needed
         """
         expected = self.expected_outputs(cohort)
-        germline_calls = inputs.as_dict_by_target(ProcessCohortCnvCallsToSgVcf)
+        germline_calls = inputs.as_dict_by_target(GermlineCNVCalls)
 
         cohort_segment_vcfs = {sgid: germline_calls[sgid]['segments'] for sgid in cohort.get_sequencing_group_ids()}
         jobs = trim_sex_chromosomes(
@@ -329,12 +329,12 @@ class TrimOffSexChromosomes(stage.CohortStage):
 @stage.stage(
     required_stages=[
         TrimOffSexChromosomes,
-        ProcessCohortCnvCallsToSgVcf,
+        GermlineCNVCalls,
         PrepareIntervals,
         UpgradePedWithInferred,
     ],
 )
-class JointSegmentCnvVcfs(stage.CohortStage):
+class GCNVJointSegmentation(stage.CohortStage):
     """
     various config elements scavenged from https://github.com/broadinstitute/gatk/blob/cfd4d87ec29ac45a68f13a37f30101f326546b7d/scripts/cnv_cromwell_tests/germline/cnv_germline_case_scattered_workflow.json#L26
     continuing adaptation of https://github.com/broadinstitute/gatk/blob/master/scripts/cnv_wdl/germline/joint_call_exome_cnvs.wdl
@@ -343,7 +343,7 @@ class JointSegmentCnvVcfs(stage.CohortStage):
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
         wf = workflow.get_workflow()
-        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / 'GCNVJointSegmentation'
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
         return {
             'clustered_vcf': prefix / 'JointClusteredSegments.vcf.gz',
             'clustered_vcf_idx': prefix / 'JointClusteredSegments.vcf.gz.tbi',
@@ -360,7 +360,7 @@ class JointSegmentCnvVcfs(stage.CohortStage):
         outputs = self.expected_outputs(cohort)
 
         # get the individual Segment VCFs
-        cnv_vcfs = inputs.as_dict_by_target(ProcessCohortCnvCallsToSgVcf)
+        cnv_vcfs = inputs.as_dict_by_target(GermlineCNVCalls)
 
         # and the dict of trimmed VCFs (can be empty)
         trimmed_vcfs = inputs.as_dict(cohort, TrimOffSexChromosomes)
@@ -396,7 +396,7 @@ class JointSegmentCnvVcfs(stage.CohortStage):
 
 
 @stage.stage(
-    required_stages=[JointSegmentCnvVcfs, CallGermlineCnvsWithGatk, ProcessCohortCnvCallsToSgVcf, DeterminePloidy],
+    required_stages=[GCNVJointSegmentation, GermlineCNV, GermlineCNVCalls, DeterminePloidy],
 )
 class RecalculateClusteredQuality(stage.SequencingGroupStage):
     """
@@ -433,17 +433,17 @@ class RecalculateClusteredQuality(stage.SequencingGroupStage):
         this_cohort = get_cohort_for_sgid(sequencing_group.id)
 
         # get the clustered VCF from the previous stage
-        joint_seg = inputs.as_dict(this_cohort, JointSegmentCnvVcfs)
+        joint_seg = inputs.as_dict(this_cohort, GCNVJointSegmentation)
 
         determine_ploidy = inputs.as_dict(this_cohort, DeterminePloidy)
-        gcnv_call_inputs = inputs.as_dict(sequencing_group, ProcessCohortCnvCallsToSgVcf)
+        gcnv_call_inputs = inputs.as_dict(sequencing_group, GermlineCNVCalls)
 
         # pull the json file with the sgid ordering
         sgid_ordering = fixed_sg_order(this_cohort)
 
         jobs = recalculate_clustered_calls(
             ploidy_calls_path=determine_ploidy['calls'],
-            shard_paths=inputs.as_dict(this_cohort, CallGermlineCnvsWithGatk),
+            shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
             sample_index=sgid_ordering.index(sequencing_group.id),
             job_attrs=self.get_job_attrs(sequencing_group),
             output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / sequencing_group.id),
@@ -517,7 +517,7 @@ class MergeCohortsgCNV(stage.MultiCohortStage):
 
 
 @stage.stage(required_stages=MergeCohortsgCNV, analysis_type='cnv', analysis_keys=['annotated_vcf'])
-class AnnotateCnvsWithSvAnnotate(stage.MultiCohortStage):
+class AnnotateCNV(stage.MultiCohortStage):
     """
     Smaller, direct annotation using SvAnnotate
     Add annotations, such as the inferred function and allele frequencies of variants, to final VCF.
@@ -560,15 +560,15 @@ class AnnotateCnvsWithSvAnnotate(stage.MultiCohortStage):
         return self.make_outputs(multicohort, data=outputs, jobs=jobs)
 
 
-@stage.stage(required_stages=AnnotateCnvsWithSvAnnotate, analysis_type='cnv')
-class AnnotateCnvsWithStrvctvre(stage.MultiCohortStage):
+@stage.stage(required_stages=AnnotateCNV, analysis_type='cnv')
+class AnnotateCNVVcfWithStrvctvre(stage.MultiCohortStage):
     def expected_outputs(self, multicohort: targets.MultiCohort) -> Path:
         return self.prefix / 'cnv_strvctvre_annotated.vcf.bgz'
 
     def queue_jobs(self, multicohort: targets.MultiCohort, inputs: stage.StageInput) -> stage.StageOutput:
         output = self.expected_outputs(multicohort)
 
-        input_vcf = inputs.as_str(multicohort, AnnotateCnvsWithSvAnnotate, key='annotated_vcf')
+        input_vcf = inputs.as_str(multicohort, AnnotateCNV, key='annotated_vcf')
 
         job = annotate_cnvs_with_strvctvre(
             input_vcf=input_vcf,
@@ -579,7 +579,7 @@ class AnnotateCnvsWithStrvctvre(stage.MultiCohortStage):
         return self.make_outputs(multicohort, data=output, jobs=job)
 
 
-@stage.stage(required_stages=AnnotateCnvsWithStrvctvre, analysis_type='single_dataset_cnv_annotated')
+@stage.stage(required_stages=AnnotateCNVVcfWithStrvctvre, analysis_type='single_dataset_cnv_annotated')
 class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
     """
     takes the whole MultiCohort annotated VCF
@@ -598,7 +598,7 @@ class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
     def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
         output = self.expected_outputs(dataset)
         input_vcf = hail_batch.get_batch().read_input(
-            inputs.as_path(workflow.get_multicohort(), AnnotateCnvsWithStrvctvre),
+            inputs.as_path(workflow.get_multicohort(), AnnotateCNVVcfWithStrvctvre),
         )
 
         job = split_mc_vcf_by_dataset(
@@ -611,7 +611,7 @@ class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
         return self.make_outputs(dataset, data=output, jobs=job)
 
 
-@stage.stage(required_stages=AnnotateCnvsWithStrvctvre, analysis_type='cnv')
+@stage.stage(required_stages=AnnotateCNVVcfWithStrvctvre, analysis_type='cnv')
 class AnnotateCohortCnv(stage.MultiCohortStage):
     """
     Rearrange the annotations across the cohort to suit Seqr
@@ -625,7 +625,7 @@ class AnnotateCohortCnv(stage.MultiCohortStage):
         Fire up the job to ingest the cohort VCF as a MT, and rearrange the annotations
         """
 
-        vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCnvsWithStrvctvre)
+        vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCNVVcfWithStrvctvre)
 
         output = self.expected_outputs(multicohort)
 
