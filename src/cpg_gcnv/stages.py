@@ -109,11 +109,13 @@ class DeterminePloidy(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
-        cohort_prefix = self.get_stage_cohort_prefix(cohort)
+        # output path for cohort-level results should be the workflow dataset / wf name / cohort id / stage / files
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
         return {
-            'filtered': cohort_prefix / 'filtered.interval_list',
-            'calls': cohort_prefix / 'ploidy-calls.tar.gz',
-            'model': cohort_prefix / 'ploidy-model.tar.gz',
+            'filtered': prefix / 'filtered.interval_list',
+            'calls': prefix / 'ploidy-calls.tar.gz',
+            'model': prefix / 'ploidy-model.tar.gz',
         }
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -151,10 +153,11 @@ class UpgradePedWithInferred(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
-        cohort_prefix = self.get_stage_cohort_prefix(cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
         return {
-            'aneuploidy_samples': cohort_prefix / 'aneuploidies.txt',
-            'pedigree': cohort_prefix / 'inferred_sex_pedigree.ped',
+            'aneuploidy_samples': prefix / 'aneuploidies.txt',
+            'pedigree': prefix / 'inferred_sex_pedigree.ped',
         }
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -179,7 +182,9 @@ class CallGermlineCnvsWithGatk(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
-        return {name: self.get_stage_cohort_prefix(cohort) / f'{name}.tar.gz' for name in shard_items(name_only=True)}
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / 'GermlineCNV'
+        return {name: prefix / f'{name}.tar.gz' for name in shard_items(name_only=True)}
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
         outputs = self.expected_outputs(cohort)
@@ -217,15 +222,14 @@ class ProcessCohortCnvCallsToSgVcf(stage.SequencingGroupStage):
         # identify the cohort that contains this SGID
         this_cohort: targets.Cohort = get_cohort_for_sgid(seqgroup.id)
 
-        # this job runs per sample, on results with a cohort context
-        # so we need to write the outputs to a cohort-specific location
-        cohort_prefix = self.get_stage_cohort_prefix(this_cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / this_cohort.id / 'GermlineCNVCalls'
         return {
-            'intervals': cohort_prefix / f'{seqgroup.id}.intervals.vcf.gz',
-            'intervals_index': cohort_prefix / f'{seqgroup.id}.intervals.vcf.gz.tbi',
-            'segments': cohort_prefix / f'{seqgroup.id}.segments.vcf.gz',
-            'segments_index': cohort_prefix / f'{seqgroup.id}.segments.vcf.gz.tbi',
-            'ratios': cohort_prefix / f'{seqgroup.id}.ratios.tsv',
+            'intervals': prefix / f'{seqgroup.id}.intervals.vcf.gz',
+            'intervals_index': prefix / f'{seqgroup.id}.intervals.vcf.gz.tbi',
+            'segments': prefix / f'{seqgroup.id}.segments.vcf.gz',
+            'segments_index': prefix / f'{seqgroup.id}.segments.vcf.gz.tbi',
+            'ratios': prefix / f'{seqgroup.id}.ratios.tsv',
         }
 
     def queue_jobs(self, seqgroup: targets.SequencingGroup, inputs: stage.StageInput) -> stage.StageOutput:
@@ -258,19 +262,20 @@ class TrimOffSexChromosomes(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path | str]:
-        cohort_prefix = self.get_stage_cohort_prefix(cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
 
         sgids_in_this_cohort = cohort.get_sequencing_group_ids()
 
         # returning an empty dictionary might cause the pipeline setup to break?
         # returning a string won't cause an existince check on this file, but will trick the pipeline into running?
         return_dict: dict[str, Path | str] = {
-            'placeholder': str(cohort_prefix / 'placeholder.txt'),
+            'placeholder': str(prefix / 'placeholder.txt'),
         }
 
         # load up the file of aneuploidies - I don't think the pipeline supports passing an input directly here
         # so... I'm making a similar path and manually string-replacing it
-        aneuploidy_file = str(cohort_prefix / 'aneuploidies.txt').replace(
+        aneuploidy_file = str(prefix / 'aneuploidies.txt').replace(
             self.name,
             'UpgradePedWithInferred',
         )
@@ -295,7 +300,7 @@ class TrimOffSexChromosomes(stage.CohortStage):
         for sgid in set(aneuploid_samples):
             if sgid not in sgids_in_this_cohort:
                 continue
-            return_dict[sgid] = cohort_prefix / f'{sgid}.segments.vcf.bgz'
+            return_dict[sgid] = prefix / f'{sgid}.segments.vcf.bgz'
 
         if len(return_dict) > 1:
             # if don't need the placeholder, remove it
@@ -337,10 +342,11 @@ class JointSegmentCnvVcfs(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path]:
-        cohort_prefix = self.get_stage_cohort_prefix(cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / 'GCNVJointSegmentation'
         return {
-            'clustered_vcf': cohort_prefix / 'JointClusteredSegments.vcf.gz',
-            'clustered_vcf_idx': cohort_prefix / 'JointClusteredSegments.vcf.gz.tbi',
+            'clustered_vcf': prefix / 'JointClusteredSegments.vcf.gz',
+            'clustered_vcf_idx': prefix / 'JointClusteredSegments.vcf.gz.tbi',
         }
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -406,17 +412,18 @@ class RecalculateClusteredQuality(stage.SequencingGroupStage):
         # identify the cohort that contains this SGID
         this_cohort = get_cohort_for_sgid(seqgroup.id)
 
-        cohort_prefix = self.get_stage_cohort_prefix(this_cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / this_cohort.id / self.name
 
         # this job runs per sample, on results with a cohort context
         # so we need to write the outputs to a cohort-specific location
         return {
-            'genotyped_intervals_vcf': cohort_prefix / f'{seqgroup.id}.intervals.vcf.gz',
-            'genotyped_intervals_vcf_index': cohort_prefix / f'{seqgroup.id}.intervals.vcf.gz.tbi',
-            'genotyped_segments_vcf': cohort_prefix / f'{seqgroup.id}.segments.vcf.gz',
-            'genotyped_segments_vcf_index': cohort_prefix / f'{seqgroup.id}.segments.vcf.gz.tbi',
-            'denoised_copy_ratios': cohort_prefix / f'{seqgroup.id}.ratios.tsv',
-            'qc_status_file': cohort_prefix / f'{seqgroup.id}.qc_status.txt',
+            'genotyped_intervals_vcf': prefix / f'{seqgroup.id}.intervals.vcf.gz',
+            'genotyped_intervals_vcf_index': prefix / f'{seqgroup.id}.intervals.vcf.gz.tbi',
+            'genotyped_segments_vcf': prefix / f'{seqgroup.id}.segments.vcf.gz',
+            'genotyped_segments_vcf_index': prefix / f'{seqgroup.id}.segments.vcf.gz.tbi',
+            'denoised_copy_ratios': prefix / f'{seqgroup.id}.ratios.tsv',
+            'qc_status_file': prefix / f'{seqgroup.id}.qc_status.txt',
         }
 
     def queue_jobs(self, sequencing_group: targets.SequencingGroup, inputs: stage.StageInput) -> stage.StageOutput:
@@ -454,14 +461,12 @@ class FastCombineGCNVs(stage.CohortStage):
     """
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path | str]:
-        """
-        This is now explicitly continuing from multicohort work, so the output path must include
-        pointers to both thetargets.MultiCohort and the targets.Cohort
-        """
-        cohort_prefix = self.get_stage_cohort_prefix(cohort)
+        wf = workflow.get_workflow()
+        prefix = workflow.get_multicohort().analysis_dataset.prefix() / wf.name / cohort.id / self.name
+
         return {
-            'combined_calls': cohort_prefix / 'gcnv_joint_call.vcf.bgz',
-            'combined_calls_index': cohort_prefix / 'gcnv_joint_call.vcf.bgz.tbi',
+            'combined_calls': prefix / 'gcnv_joint_call.vcf.bgz',
+            'combined_calls_index': prefix / 'gcnv_joint_call.vcf.bgz.tbi',
         }
 
     def queue_jobs(self, cohort: targets.Cohort, inputs: stage.StageInput) -> stage.StageOutput:
