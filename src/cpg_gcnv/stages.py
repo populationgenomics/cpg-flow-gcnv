@@ -581,7 +581,7 @@ class AnnotateCNVVcfWithStrvctvre(stage.MultiCohortStage):
 class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
     """Takes the whole MultiCohort annotated VCF, splits it up into separate VCFs for each dataset."""
 
-    def expected_outputs(self, dataset: targets.dataset) -> Path:
+    def expected_outputs(self, dataset: targets.Dataset) -> Path:
         return (
             dataset.prefix()
             / workflow.get_workflow().name
