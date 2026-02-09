@@ -18,7 +18,7 @@ ANNOTATION_WORKFLOW = 'AnnotateVcf'
 def queue_annotate_sv_jobs(
     multicohort: targets.MultiCohort,
     prefix: Path,
-    input_vcf: Path,
+    input_vcf: str,
     outputs: dict[str, Path],
 ) -> 'list[BashJob]':
     """

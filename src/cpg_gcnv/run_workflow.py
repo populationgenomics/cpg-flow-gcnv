@@ -28,7 +28,7 @@ def cli_main():
     parser.add_argument('--dry_run', action='store_true', help='Dry run')
     args = parser.parse_args()
 
-    run_workflow(stages=[MtToEsCnv, SplitAnnotatedCnvVcfByDataset], dry_run=args.dry_run)
+    run_workflow(name='cpg-flow-gcnv', stages=[MtToEsCnv, SplitAnnotatedCnvVcfByDataset], dry_run=args.dry_run)
 
 
 if __name__ == '__main__':

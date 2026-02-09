@@ -645,7 +645,7 @@ class AnnotateDatasetCnv(stage.DatasetStage):
     def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
         """Subsets the multicohort MT to this dataset only, then brings genotype data into row annotations."""
 
-        mt_in = inputs.as_str(target=workflow.get_multicohort(), stage=AnnotateCohortCnv)
+        mt_in = inputs.as_path(target=workflow.get_multicohort(), stage=AnnotateCohortCnv)
 
         output = self.expected_outputs(dataset)
 

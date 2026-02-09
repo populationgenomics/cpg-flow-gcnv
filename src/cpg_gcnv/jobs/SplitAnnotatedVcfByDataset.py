@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from cpg_flow import targets, workflow
-from cpg_utils import Path, config, hail_batch
+from cpg_utils import config, hail_batch
 
 if TYPE_CHECKING:
     from hailtop.batch.job import BashJob
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 def split_mc_vcf_by_dataset(
     dataset: targets.Dataset,
     input_vcf: str,
-    output: Path,
+    output: str,
     job_attrs: dict[str, str],
 ) -> 'BashJob':
     """Use BCFtools to split a multicohort VCF by dataset."""
@@ -43,6 +43,6 @@ def split_mc_vcf_by_dataset(
         """,
     )
 
-    hail_batch.get_batch().write_output(job.output, str(output).removesuffix('.vcf.bgz'))
+    hail_batch.get_batch().write_output(job.output, output.removesuffix('.vcf.bgz'))
 
     return job

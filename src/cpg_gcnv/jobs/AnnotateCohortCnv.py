@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 def submit_annotate_cohort_job(
     input_vcf: str,
-    output_mt: str,
+    output_mt: Path,
     checkpoint: Path,
     attributes: dict[str, str],
 ) -> 'BashJob':
@@ -24,7 +24,7 @@ def submit_annotate_cohort_job(
     job.command(
         f"""
         python3 -m cpg_gcnv.scripts.annotate_cohort \\
-        --mt_out {output_mt} \\
+        --mt_out {output_mt!s} \\
         --checkpoint {checkpoint!s} \\
         --vcf {input_vcf} \\
         --gencode {gencode_gtf_local!s}
