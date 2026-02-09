@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from cpg_utils import config, hail_batch
+from cpg_utils import Path, config, hail_batch
 
 from cpg_gcnv.scripts import upgrade_ped_with_inferred_sex
 
@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 
 
 def upgrade_ped_file(
-    ped_file: str,
-    new_output: str,
-    aneuploidies: str,
+    ped_file: Path,
+    new_output: Path,
+    aneuploidies: Path,
     ploidy_tar: str,
 ) -> 'BashJob':
     """
@@ -19,7 +19,7 @@ def upgrade_ped_file(
     update a ped file, and
 
     Args:
-        ped_file (str): path to a PED in GCP
+        ped_file (Path): path to a PED in GCP
         new_output ():
         aneuploidies (str): where to write identified aneuploidies
         ploidy_tar ():
