@@ -2,7 +2,7 @@ import functools
 from typing import TYPE_CHECKING
 
 import loguru
-from cpg_utils import cloud, config, hail_batch
+from cpg_utils import cloud, config, hail_batch, to_path
 from google.api_core.exceptions import PermissionDenied
 
 from cpg_gcnv.scripts import mt_to_es
@@ -30,17 +30,7 @@ def submit_es_job_for_dataset(
     done_flag: str,
     dataset: str,
 ) -> 'BashJob | None':
-    """
-
-    Args:
-        mt_path ():
-        index_name ():
-        done_flag ():
-        dataset ():
-
-    Returns:
-
-    """
+    """Submit the ES export job."""
 
     # try to generate a password here - we'll find out inside the script anyway, but
     # by that point we'd already have localised the MT, wasting time and money
@@ -54,7 +44,7 @@ def submit_es_job_for_dataset(
         return None
 
     # and just the name, used after localisation
-    mt_name = mt_path.split('/')[-1]
+    mt_name = to_path(mt_path).name
 
     job = hail_batch.get_batch().new_bash_job(f'Generate {index_name} from {mt_path}')
 

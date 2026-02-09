@@ -26,7 +26,7 @@ def split_mc_vcf_by_dataset(
         name=f'SplitAnnotatedVcfByDataset: {dataset}',
         attributes=job_attrs | {'tool': 'bcftools'},
     )
-    job.image(config.config_retrieve(['images', 'bcftools_120'])).cpu(1).memory('highmem').storage('10Gi')
+    job.image(config.config_retrieve(['images', 'bcftools'])).cpu(1).memory('highmem').storage('10Gi')
 
     job.declare_resource_group(output={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
 

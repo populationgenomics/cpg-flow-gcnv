@@ -31,7 +31,7 @@ def trim_sex_chromosomes(
             f'Remove sex chromosomes from {sgid}',
             attributes=job_attrs | {'tool': 'bcftools'},
         )
-        job.image(config.config_retrieve(['images', 'bcftools_120']))
+        job.image(config.config_retrieve(['images', 'bcftools']))
         job.declare_resource_group(output={'vcf.bgz': '{root}.vcf.bgz', 'vcf.bgz.tbi': '{root}.vcf.bgz.tbi'})
         localised_vcf = hail_batch.get_batch().read_input_group(
             **{

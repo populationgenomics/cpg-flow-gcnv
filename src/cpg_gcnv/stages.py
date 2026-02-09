@@ -456,9 +456,7 @@ class RecalculateClusteredQuality(stage.SequencingGroupStage):
 
 @stage.stage(required_stages=RecalculateClusteredQuality)
 class FastCombineGCNVs(stage.CohortStage):
-    """
-    Produces final multi-sample VCF results by running a merge
-    """
+    """Produces final multi-sample VCF results by running a merge."""
 
     def expected_outputs(self, cohort: targets.Cohort) -> dict[str, Path | str]:
         wf = workflow.get_workflow()
@@ -489,12 +487,12 @@ class MergeCohortsgCNV(stage.MultiCohortStage):
     We could use Jasmine for a better merge
     """
 
-    def expected_outputs(self, multicohort: targets.MultiCohort) -> Path:
+    def expected_outputs(self, _multicohort: targets.MultiCohort) -> Path:
         return self.prefix / 'multi_cohort_gcnv.vcf.bgz'
 
     def queue_jobs(self, multicohort: targets.MultiCohort, inputs: stage.StageInput) -> stage.StageOutput:
         """
-        re-uses the FastCombineGCNVs job to merge the targets.Cohort-level VCFs into atargets.MultiCohort VCF
+        re-uses the FastCombineGCNVs job to merge the targets.Cohort-level VCFs into a targets.MultiCohort VCF
 
         Args:
             multicohort ():
@@ -535,7 +533,7 @@ class AnnotateCNV(stage.MultiCohortStage):
       frequencies of their overlapping SVs in another callset, e.g. gnomad SV callset.
     """
 
-    def expected_outputs(self, multicohort: targets.MultiCohort) -> dict[str, Path]:
+    def expected_outputs(self, _multicohort: targets.MultiCohort) -> dict[str, Path]:
         # kinda important to keep this as a dictionary for the pipeline - extracted by name as cromwell outputs
         return {
             'annotated_vcf': self.prefix / 'merged_gcnv_annotated.vcf.bgz',
@@ -562,7 +560,7 @@ class AnnotateCNV(stage.MultiCohortStage):
 
 @stage.stage(required_stages=AnnotateCNV, analysis_type='cnv')
 class AnnotateCNVVcfWithStrvctvre(stage.MultiCohortStage):
-    def expected_outputs(self, multicohort: targets.MultiCohort) -> Path:
+    def expected_outputs(self, _multicohort: targets.MultiCohort) -> Path:
         return self.prefix / 'cnv_strvctvre_annotated.vcf.bgz'
 
     def queue_jobs(self, multicohort: targets.MultiCohort, inputs: stage.StageInput) -> stage.StageOutput:
@@ -581,10 +579,7 @@ class AnnotateCNVVcfWithStrvctvre(stage.MultiCohortStage):
 
 @stage.stage(required_stages=AnnotateCNVVcfWithStrvctvre, analysis_type='single_dataset_cnv_annotated')
 class SplitAnnotatedCnvVcfByDataset(stage.DatasetStage):
-    """
-    takes the whole MultiCohort annotated VCF
-    splits it up into separate VCFs for each dataset
-    """
+    """Takes the whole MultiCohort annotated VCF, splits it up into separate VCFs for each dataset."""
 
     def expected_outputs(self, dataset: targets.dataset) -> Path:
         return (
@@ -621,9 +616,7 @@ class AnnotateCohortCnv(stage.MultiCohortStage):
         return self.prefix / 'gcnv_annotated_cohort.mt'
 
     def queue_jobs(self, multicohort: targets.MultiCohort, inputs: stage.StageInput) -> stage.StageOutput:
-        """
-        Fire up the job to ingest the cohort VCF as a MT, and rearrange the annotations
-        """
+        """Fire up the job to ingest the cohort VCF as a MT, and rearrange the annotations."""
 
         vcf_path = inputs.as_str(target=multicohort, stage=AnnotateCNVVcfWithStrvctvre)
 
@@ -646,19 +639,11 @@ class AnnotateDatasetCnv(stage.DatasetStage):
     """
 
     def expected_outputs(self, dataset: targets.Dataset) -> Path:
-        """
-        Expected to generate a matrix table
-        """
+        """Expected to generate a matrix table."""
         return dataset.prefix() / 'mt' / f'gCNV-{workflow.get_workflow().output_version}-{dataset.name}.mt'
 
     def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
-        """
-        Subsets the multicohort MT to this dataset only, then brings genotype data into row annotations
-
-        Args:
-            dataset ():
-            inputs ():
-        """
+        """Subsets the multicohort MT to this dataset only, then brings genotype data into row annotations."""
 
         mt_in = inputs.as_str(target=workflow.get_multicohort(), stage=AnnotateCohortCnv)
 
@@ -672,7 +657,7 @@ class AnnotateDatasetCnv(stage.DatasetStage):
 @stage.stage(
     required_stages=[AnnotateDatasetCnv],
     analysis_type='es-index',
-    analysis_keys=['index_name'],
+    analysis_keys=['done_flag'],
     # https://github.com/populationgenomics/metamist/issues/539
     update_analysis_meta=lambda x: {'seqr-dataset-type': 'CNV'},  # noqa: ARG005
 )
@@ -694,15 +679,8 @@ class MtToEsCnv(stage.DatasetStage):
     def queue_jobs(self, dataset: targets.Dataset, inputs: stage.StageInput) -> stage.StageOutput:
         """
         Freshly liberated from the clutches of DataProc
-        Uses the script cpg_workflows/dataproc_scripts/mt_to_es_free_of_dataproc.py
-        The script was registered in setup.py with a console entrypoint
-        This requires a code version >= 1.25.14 in the worker job image to operate
 
         gCNV indexes have never been spotted over a GB in the wild, so we use minimum storage
-
-        Args:
-            dataset (targets.Dataset):
-            inputs ():
         """
 
         # get the absolute path to the MT

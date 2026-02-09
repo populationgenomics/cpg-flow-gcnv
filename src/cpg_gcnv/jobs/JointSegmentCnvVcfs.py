@@ -61,7 +61,7 @@ def run_joint_segmentation(
     intervals: str,
     tmp_prefix: Path,
     output_path: Path,
-    job_attrs: dict[str, str] | None = None,
+    job_attrs: dict[str, str],
 ) -> 'list[BashJob]':
     """
     This job will run the joint segmentation step of the gCNV workflow
@@ -69,17 +69,6 @@ def run_joint_segmentation(
     Depending on the config setting workflow.num_samples_per_scatter_block
     this may be conducted in hierarchical 2-step, with intermediate merges
     being conducted, then a merge of those intermediates
-
-    Args:
-        segment_vcfs ():
-        pedigree ():
-        intervals ():
-        tmp_prefix ():
-        output_path ():
-        job_attrs ():
-
-    Returns:
-
     """
     jobs = []
 

@@ -37,10 +37,9 @@ gatk_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:202
 #gatk_gcnv = 'australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:4.2.6.1-57-g9e03432'
 sv_base_mini_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/sv-base-mini:5994670"
 
-gatk_gcnv='australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:2024-12-05-4.6.1.0-6-gfc248dfc1-NIGHTLY-SNAPSHOT'
+gatk_gcnv='australia-southeast1-docker.pkg.dev/cpg-common/images/gatk:4.6.2.0-1'
 sv_pipeline_docker = 'australia-southeast1-docker.pkg.dev/cpg-common/images/gatk-sv_issue_661:n_a-1'
-bcftools_116 = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools:1.16"
-bcftools_120 = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools_120:1.20"
+bcftools = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools:1.22-1"
 
 [annotate]
 # a couple of annotation arguments are not files
@@ -54,7 +53,7 @@ protein_coding_gtf = "gs://cpg-common-main/references/gatk-sv/hg38/v0/sv-resourc
 # update this when cpg_workflows.scripts.get_gencode_gtf.sh is re-run
 gencode_gtf_file = 'gs://cpg-common-main/references/hg38/v0/gencode_47.gtf.gz'
 
-strvctvre_phylop = 'gs://cpg-common-test/references/hg38.phyloP100way.bw'
+strvctvre_phylop = 'gs://cpg-common-main/references/hg38.phyloP100way.bw'
 
 [elasticsearch]
 # Configure access to ElasticSearch server

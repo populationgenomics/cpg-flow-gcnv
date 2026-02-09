@@ -47,7 +47,7 @@ def annotate_dataset_gcnv(mt_in: str, mt_out: str):
 
     def _genotype_filter_samples_cn2() -> hl.set:
         # Filter on the genotypes.
-        return hl.set(mt.genotypes.filter(lambda g: ((g.gt.is_haploid()) & (g.cn == 2))).map(lambda g: g.sample_id))  # noqa: PLR2004
+        return hl.set(mt.genotypes.filter(lambda g: (g.gt.is_haploid()) & (g.cn == 2)).map(lambda g: g.sample_id))  # noqa: PLR2004
 
     # top level - decorator
     def _capture_i_decorator(func):  # noqa: ANN202
