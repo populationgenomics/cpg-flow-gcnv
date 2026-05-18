@@ -37,7 +37,7 @@ gatk_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:202
 #gatk_gcnv = 'australia-southeast1-docker.pkg.dev/cpg-common/images/sv/gatk:4.2.6.1-57-g9e03432'
 sv_base_mini_docker = "australia-southeast1-docker.pkg.dev/cpg-common/images/sv/sv-base-mini:5994670"
 
-gatk_gcnv='australia-southeast1-docker.pkg.dev/cpg-common/images/gatk:4.6.2.0-1'
+gatk_gcnv='australia-southeast1-docker.pkg.dev/cpg-common/images/gatk:4.6.2.0-21-ge8c49f600-NIGHTLY-SNAPSHOT'
 sv_pipeline_docker = 'australia-southeast1-docker.pkg.dev/cpg-common/images/gatk-sv_issue_661:n_a-1'
 bcftools = "australia-southeast1-docker.pkg.dev/cpg-common/images/bcftools:1.22-1"
 
