@@ -248,7 +248,7 @@ class GermlineCNVCalls(stage.SequencingGroupStage):
             shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
             sample_index=sgid_ordering.index(seqgroup.id),
             job_attrs=self.get_job_attrs(seqgroup),
-            output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / seqgroup.id),
+            output_prefix=str(outputs['ratios']).removesuffix('.ratios.tsv'),
         )
         return self.make_outputs(seqgroup, data=outputs, jobs=jobs)
 
@@ -446,7 +446,7 @@ class RecalculateClusteredQuality(stage.SequencingGroupStage):
             shard_paths=inputs.as_dict(this_cohort, GermlineCNV),
             sample_index=sgid_ordering.index(sequencing_group.id),
             job_attrs=self.get_job_attrs(sequencing_group),
-            output_prefix=str(self.get_stage_cohort_prefix(this_cohort) / sequencing_group.id),
+            output_prefix=str(expected_out['qc_status_file']).removesuffix('.qc_status.txt'),
             clustered_vcf=str(joint_seg['clustered_vcf']),
             intervals_vcf=str(gcnv_call_inputs['intervals']),
             qc_file=str(expected_out['qc_status_file']),
