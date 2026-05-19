@@ -46,7 +46,6 @@ def get_next_version_tag(folder: str, version: str) -> str:
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
         except subprocess.CalledProcessError:
-            print(f'Failed to list tags for {full_image_name}')
             continue
 
         # If existing tags are found, proceed to determine the next version.
