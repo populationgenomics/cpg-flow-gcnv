@@ -34,9 +34,6 @@ def get_next_version_tag(folder: str, version: str) -> str:
     full_image_name_archive = f'{base_image_path_archive}/{folder}'
 
     tags_list = []
-    import logging  # noqa: PLC0415
-
-    logging.basicConfig(level=logging.ERROR)
     for full_image_name in [full_image_name_prod, full_image_name_archive]:
         cmd = [
             'gcloud',
@@ -49,7 +46,7 @@ def get_next_version_tag(folder: str, version: str) -> str:
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
         except subprocess.CalledProcessError:
-            logging.error(f'Failed to list tags for {full_image_name}')
+            print(f'Failed to list tags for {full_image_name}')
             continue
 
         # If existing tags are found, proceed to determine the next version.
@@ -81,8 +78,7 @@ def main():
     # Determine the next available tag based on current_version.
     new_tag = get_next_version_tag(container_name, current_version)
 
-    include_entries = []
-    include_entries.append({'name': container_name, 'tag': new_tag})
+    include_entries = [{'name': container_name, 'tag': new_tag}]
 
     # Build the final matrix structure.
     matrix = {'include': include_entries}
