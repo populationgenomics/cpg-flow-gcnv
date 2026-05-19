@@ -24,7 +24,7 @@ from cpg_gcnv.jobs.RecalculateClusteredQuality import recalculate_clustered_call
 from cpg_gcnv.jobs.SplitAnnotatedVcfByDataset import split_mc_vcf_by_dataset
 from cpg_gcnv.jobs.TrimOffSexChromosomes import trim_sex_chromosomes
 from cpg_gcnv.jobs.UpgradePedWithInferredSex import upgrade_ped_file
-from cpg_gcnv.utils import shard_items
+from cpg_gcnv.utils import check_for_cohort_overlaps, shard_items
 
 
 @cache
@@ -69,6 +69,7 @@ class PrepareIntervals(stage.MultiCohortStage):
         }
 
     def queue_jobs(self, multicohort: targets.MultiCohort, inputs: stage.StageInput) -> stage.StageOutput:
+        check_for_cohort_overlaps(multicohort)
         outputs = self.expected_outputs(multicohort)
         jobs = prepare_intervals(self.get_job_attrs(multicohort), outputs)
         return self.make_outputs(multicohort, data=outputs, jobs=jobs)

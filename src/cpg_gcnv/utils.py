@@ -1,3 +1,4 @@
+import itertools
 import re
 from typing import TYPE_CHECKING
 
@@ -79,6 +80,40 @@ def make_combined_ped(cohort: targets.MultiCohort, prefix: Path) -> Path:
         with to_path(conf_ped_path).open() as f:
             out.write(f.read())
     return combined_ped_path
+
+
+def check_for_cohort_overlaps(multicohort: targets.MultiCohort):
+    """
+    Check for overlapping cohorts in a MultiCohort.
+    GATK-SV does not tolerate overlapping cohorts, so we check for this here.
+    This is called once per MultiCohort, and raises an Exception if any overlaps are found
+
+    Args:
+        multicohort (MultiCohort): the MultiCohort to check
+    """
+    # placeholder for errors
+    errors: list[str] = []
+    sgs_per_cohort: dict[str, set[str]] = {}
+    # grab all SG IDs per cohort
+    for cohort in multicohort.get_cohorts():
+        # shouldn't be possible, but guard against to be sure
+        if cohort.id in sgs_per_cohort:
+            raise ValueError(f'Cohort {cohort.id} already exists in {sgs_per_cohort}')
+
+        # collect the SG IDs for this cohort
+        sgs_per_cohort[cohort.id] = set(cohort.get_sequencing_group_ids())
+
+    # pairwise iteration over cohort IDs
+    for id1, id2 in itertools.combinations(sgs_per_cohort, 2):
+        # if the IDs are the same, skip. Again, shouldn't be possible, but guard against to be sure
+        if id1 == id2:
+            continue
+        # if there are overlapping SGs, raise an error
+        if overlap := sgs_per_cohort[id1] & sgs_per_cohort[id2]:
+            errors.append(f'Overlapping cohorts {id1} and {id2} have overlapping SGs: {overlap}')
+    # upon findings any errors, raise an Exception and die
+    if errors:
+        raise ValueError('\n'.join(errors))
 
 
 def postprocess_calls(
