@@ -33,26 +33,36 @@ def update_vcf_attributes(input_tmp: str, output_file: str):
             if l_split[4] == '.':
                 continue
 
-            original_start = int(l_split[1])
+            start = int(l_split[1])
 
             # e.g. "AN_Orig=61;END=56855888;SVTYPE=DUP"
-            original_info: dict[str, str] = dict(el.split('=') for el in l_split[7].split(';'))
-
-            # steal the END integer
-            end_int = int(original_info['END'])
+            original_info: dict[str, str | int] = dict(el.split('=') for el in l_split[7].split(';'))
 
             # e.g. <DEL> -> DEL
             alt_allele = l_split[4][1:-1]
 
             # replace compound ID original ID
             chrom = l_split[0]
-            start = l_split[1]
+
+            # does this row have an END attribute?
+            has_end = 'END' in original_info
+            # does this row have an SVLEN attribute?
+            has_len = 'SVLEN' in original_info
+
+            if has_end and has_len:
+                end = original_info['END']
+            elif has_end:
+                end = original_info['END']
+                original_info['SVLEN'] = int(end) - start - 2
+            else:
+                svlen = int(original_info['SVLEN'])
+                original_info['END'] = start + svlen + 2
+                end = original_info['END']
 
             # make this unique after splitting (include alt allele)
-            l_split[2] = f'CNV_{chrom}_{start}_{end_int}_{alt_allele}'
+            l_split[2] = f'CNV_{chrom}_{start}_{end}_{alt_allele}'
 
             # update the INFO field with Length and Type (DUP/DEL, not "CNV")
-            original_info['SVLEN'] = str(end_int - original_start)
             l_split[7] = ';'.join(f'{k}={v}' for k, v in original_info.items())
 
             # put it together and what have you got?
