@@ -23,7 +23,7 @@ jobs:
     environment: development
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     outputs:
-      matrix: ${{ steps.get_next_version.outputs.next_version }}
+      next_version: ${{ steps.get_next_version.outputs.next_version }}
     steps:
       - name: 'Checkout repo'
         uses: actions/checkout@v4
@@ -59,9 +59,7 @@ jobs:
     environment: development
     needs:
       - get_next_version
-    if: ${{ needs.get_next_version.outputs.matrix != '{"include":[]}' && needs.get_next_version.outputs.matrix != '' && github.event_name == 'push' }}
-    strategy:
-      matrix: ${{ fromJson(needs.get_next_version.outputs.matrix) }}
+    if: ${{ needs.get_next_version.outputs.next_version != '' && github.event_name == 'push' }}
     steps:
       - name: 'checkout repo'
         uses: actions/checkout@v4
@@ -85,11 +83,11 @@ jobs:
       - name: 'build image with get_next_version'
         run: |
           docker build . -f Dockerfile \
-          --build-arg VERSION=${{ matrix.tag }} \
-          --tag ${{ env.IMAGES_PREFIX }}/${{ matrix.name }}:${{ matrix.tag }}
+          --build-arg VERSION=${{ needs.get_next_version.outputs.next_version }} \
+          --tag ${{ env.IMAGES_PREFIX }}/cpg-flow-gcnv:${{ needs.get_next_version.outputs.next_version }}
       - name: 'Push to dev artifactory'
         run: |
-          docker push "${{ env.IMAGES_PREFIX }}/${{ matrix.name }}:${{ matrix.tag }}" | tee push.log
+          docker push "${{ env.IMAGES_PREFIX }}/cpg-flow-gcnv:${{ needs.get_next_version.outputs.next_version }}" | tee push.log
           digest=$(grep 'digest:' push.log | grep -o 'sha256:[0-9a-f]*')
           echo ":package: Link to image:" >> $GITHUB_STEP_SUMMARY
-          echo "https://console.cloud.google.com/artifacts/docker/cpg-common/australia-southeast1/images-dev/${{ matrix.name }}/$digest?project=cpg-common" >> $GITHUB_STEP_SUMMARY
+          echo "https://console.cloud.google.com/artifacts/docker/cpg-common/australia-southeast1/images-dev/cpg-flow-gcnv/$digest?project=cpg-common" >> $GITHUB_STEP_SUMMARY

@@ -78,12 +78,8 @@ def main():
     # Determine the next available tag based on current_version.
     new_tag = get_next_version_tag(container_name, current_version)
 
-    include_entries = [{'name': container_name, 'tag': new_tag}]
-
-    # Build the final matrix structure.
-    matrix = {'include': include_entries}
-    print(json.dumps(matrix, separators=(',', ':')), file=sys.stderr)
-    print(json.dumps(matrix, separators=(',', ':')), end='')
+    print(new_tag, file=sys.stderr)
+    print(new_tag, end='')
 
 
 main()
