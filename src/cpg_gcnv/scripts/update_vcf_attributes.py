@@ -36,7 +36,7 @@ def update_vcf_attributes(input_tmp: str, output_file: str):
             start = int(l_split[1])
 
             # e.g. "AN_Orig=61;END=56855888;SVTYPE=DUP"
-            original_info: dict[str, str | int] = dict(el.split('=') for el in l_split[7].split(';'))
+            original_info: dict[str, str] = dict(el.split('=') for el in l_split[7].split(';'))
 
             # e.g. <DEL> -> DEL
             alt_allele = l_split[4][1:-1]
@@ -53,10 +53,10 @@ def update_vcf_attributes(input_tmp: str, output_file: str):
                 end = original_info['END']
             elif has_end:
                 end = original_info['END']
-                original_info['SVLEN'] = int(end) - start - 2
+                original_info['SVLEN'] = str(int(end) - start - 2)
             else:
                 svlen = int(original_info['SVLEN'])
-                original_info['END'] = start + svlen + 2
+                original_info['END'] = str(start + svlen + 2)
                 end = original_info['END']
 
             # make this unique after splitting (include alt allele)
