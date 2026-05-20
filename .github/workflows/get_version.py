@@ -47,8 +47,8 @@ def get_next_version_tag(folder: str, version: str) -> str:
             if match:
                 num = int(match.group(1))
                 max_suffix = max(max_suffix, num)
-    except subprocess.CalledProcessError:
-        raise RuntimeError('Failed to list tags for the given image')
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError('Failed to list tags for the given image') from err
 
     return f'{version}-{max_suffix + 1}'
 
