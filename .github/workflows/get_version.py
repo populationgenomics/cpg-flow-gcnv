@@ -40,8 +40,10 @@ def get_next_version_tag(folder: str, version: str) -> str:
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
-        for tag in json.loads(result.stdout)['tags']:
-            match = pattern.match(tag)
+        for block in json.loads(result.stdout):
+            if not block.get('tags', []):
+                continue
+            match = pattern.match(block['tags'][0])
             if match:
                 num = int(match.group(1))
                 max_suffix = max(max_suffix, num)
